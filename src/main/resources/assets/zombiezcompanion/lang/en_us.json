@@ -1,30 +1,7 @@
 {
-  "key.zombiezcompanion.open_menu": "Open ZZC Menu",
+  "key.zombiezcompanion.open_menu": "Open ZombieZ Companion menu",
   "key.categories.zombiezcompanion": "ZombieZ Companion",
 
-  "zombiezcompanion.screen.main_title": "ZombieZ Companion Settings",
-  "zombiezcompanion.screen.back": "Back",
-  "zombiezcompanion.screen.save": "Save",
-  "zombiezcompanion.screen.reset_session": "Reset Session",
-
-  "zombiezcompanion.module.event_alerts": "Event Alerts",
-  "zombiezcompanion.module.smart_hud": "Smart HUD",
-  "zombiezcompanion.module.session_tracker": "Session Tracker",
-
-  "zombiezcompanion.config.enabled": "Enabled",
-  "zombiezcompanion.config.show_center_alert": "Center Alert",
-  "zombiezcompanion.config.show_history": "Show History",
-  "zombiezcompanion.config.play_sound": "Play Sound",
-  "zombiezcompanion.config.show_timer": "Show Timer",
-  "zombiezcompanion.config.show_background": "Background",
-  "zombiezcompanion.config.show_zone": "Show Zone",
-  "zombiezcompanion.config.show_class": "Show Class",
-  "zombiezcompanion.config.show_mutation": "Show Mutation",
-  "zombiezcompanion.config.show_streak": "Show Streak",
-  "zombiezcompanion.config.show_event": "Show Active Event",
-  "zombiezcompanion.config.show_session_time": "Show Session Time",
-  "zombiezcompanion.config.auto_start": "Auto-start on Join",
-  "zombiezcompanion.config.persist_history": "Save History",
-  "zombiezcompanion.config.track_kills": "Track Kills",
-  "zombiezcompanion.config.track_loot": "Track Loot"
+  "screen.zombiezcompanion.config.title": "ZombieZ Companion",
+  "modmenu.summary.zombiezcompanion": "Client-side QoL companion for the ZombieZ server."
 }

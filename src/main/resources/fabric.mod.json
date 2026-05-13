@@ -3,19 +3,22 @@
   "id": "zombiezcompanion",
   "version": "${version}",
   "name": "ZombieZ Companion",
-  "description": "Client-side QoL companion mod for the ZombieZ server.",
+  "description": "Client-side, read-only QoL companion mod for the ZombieZ Minecraft server. Provides modular overlays and helpers; never automates gameplay.",
   "authors": ["KEOZ5"],
   "contact": {
-    "sources": "https://github.com/KEOZ5/zombiez-companion"
+    "homepage": "https://github.com/KEOZ5/zombiez-companion",
+    "sources":  "https://github.com/KEOZ5/zombiez-companion",
+    "issues":   "https://github.com/KEOZ5/zombiez-companion/issues"
   },
   "license": "MIT",
+  "icon": "assets/zombiezcompanion/icon.png",
   "environment": "client",
   "entrypoints": {
     "client": [
-      "com.keoz5.zombiezcompanion.ZombieZCompanionClient"
+      "io.github.keoz5.zombiezcompanion.ZombieZCompanionClient"
     ],
     "modmenu": [
-      "com.keoz5.zombiezcompanion.ui.ModMenuIntegration"
+      "io.github.keoz5.zombiezcompanion.ui.ModMenuIntegration"
     ]
   },
   "mixins": [
@@ -23,9 +26,9 @@
   ],
   "depends": {
     "fabricloader": ">=0.16.0",
-    "fabric-api": "*",
-    "minecraft": "~1.21.4",
-    "java": ">=21"
+    "fabric-api":   "*",
+    "minecraft":    "~1.21.4",
+    "java":         ">=21"
   },
   "suggests": {
     "modmenu": "*"

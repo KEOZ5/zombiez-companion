@@ -13,8 +13,8 @@
 @rem See the License for the specific language governing permissions and
 @rem limitations under the License.
 @rem
-@rem NOTE: gradle/wrapper/gradle-wrapper.jar must exist.
-@rem Generate it with: gradle wrapper --gradle-version 8.10
+@rem SPDX-License-Identifier: Apache-2.0
+@rem
 
 @if "%DEBUG%"=="" @echo off
 @rem ##########################################################################
