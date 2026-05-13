@@ -19,25 +19,37 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Build with Gradle
+      - name: Debug environment
         run: |
-          wget -q https://services.gradle.org/distributions/gradle-8.10-bin.zip -O /tmp/gradle.zip
-          unzip -q /tmp/gradle.zip -d /opt
-          export PATH="/opt/gradle-8.10/bin:$PATH"
-          java -version 2>&1
-          gradle --version 2>&1
-          gradle build --stacktrace 2>&1 | tee /tmp/build.log
-          BUILD_EXIT=${PIPESTATUS[0]}
-          exit $BUILD_EXIT
+          which gradle || echo "no system gradle"
+          gradle --version || echo "gradle --version failed"
+          java -version
+          ls -la
+          cat gradle/wrapper/gradle-wrapper.properties
 
-      - name: Show build log on failure
+      - name: Download Gradle wrapper JAR
+        run: |
+          GRADLE_VER=8.10
+          DIST_URL=https://services.gradle.org/distributions/gradle-${GRADLE_VER}-bin.zip
+          wget -q "$DIST_URL" -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /tmp/gradle-dist
+          cp /tmp/gradle-dist/gradle-${GRADLE_VER}/lib/gradle-wrapper-*.jar gradle/wrapper/gradle-wrapper.jar 2>/dev/null || \
+            cp /tmp/gradle-dist/gradle-${GRADLE_VER}/lib/plugins/gradle-wrapper*.jar gradle/wrapper/gradle-wrapper.jar 2>/dev/null || \
+            find /tmp/gradle-dist -name "gradle-wrapper*.jar" -exec cp {} gradle/wrapper/gradle-wrapper.jar \;
+          chmod +x gradlew
+          ls -lah gradle/wrapper/
+
+      - name: Build
+        run: ./gradlew build --stacktrace 2>&1 | tee /tmp/build.log; exit ${PIPESTATUS[0]}
+
+      - name: Show error log
         if: failure()
         run: |
-          echo "## Build Output (last 150 lines)" >> $GITHUB_STEP_SUMMARY
+          echo "=== LAST 200 LINES OF BUILD LOG ===" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -150 /tmp/build.log >> $GITHUB_STEP_SUMMARY
+          tail -200 /tmp/build.log >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          tail -150 /tmp/build.log
+          tail -100 /tmp/build.log
 
       - name: Upload JAR
         if: success()
