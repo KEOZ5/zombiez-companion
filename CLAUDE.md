@@ -114,10 +114,13 @@ setEnabled(id, false)
 
 | Command | Effect |
 |---|---|
-| `/zzc menu`   | Open the config screen |
 | `/zzc debug`  | Toggle global debug mode (persisted) |
 | `/zzc status` | List modules + enable state |
 | `/zzc reload` | Force-save the current config |
+
+The config screen is opened **only** via the Right Shift keybind — running
+`setScreen` from inside a client command proved unreliable across Fabric
+versions.
 
 ## Keybind
 

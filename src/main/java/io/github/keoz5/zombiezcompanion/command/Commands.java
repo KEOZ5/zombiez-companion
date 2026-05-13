@@ -4,10 +4,8 @@ import io.github.keoz5.zombiezcompanion.config.ConfigManager;
 import io.github.keoz5.zombiezcompanion.core.Module;
 import io.github.keoz5.zombiezcompanion.core.ModuleManager;
 import io.github.keoz5.zombiezcompanion.log.Log;
-import io.github.keoz5.zombiezcompanion.ui.ConfigScreen;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandManager;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.text.Text;
 
 /**
@@ -15,11 +13,14 @@ import net.minecraft.text.Text;
  *
  * <p>Subcommands:
  * <ul>
- *     <li>{@code /zzc menu} — open the config screen</li>
  *     <li>{@code /zzc debug} — toggle global debug mode (persisted)</li>
  *     <li>{@code /zzc status} — list modules with their enable state</li>
- *     <li>{@code /zzc reload} — reload config from disk</li>
+ *     <li>{@code /zzc reload} — force-save the current config to disk</li>
  * </ul>
+ *
+ * <p>The config screen is opened via the Right Shift keybind only — running
+ * {@code setScreen} from inside a client command was unreliable across
+ * Fabric versions, so the command has been removed in favor of the keybind.
  */
 public final class Commands {
 
@@ -28,13 +29,6 @@ public final class Commands {
     public static void register(ConfigManager configManager, ModuleManager moduleManager) {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) ->
                 dispatcher.register(ClientCommandManager.literal("zzc")
-                        .then(ClientCommandManager.literal("menu").executes(ctx -> {
-                            // Defer: chat screen is still closing while this executes; setting
-                            // a screen synchronously gets overwritten by the chat closure.
-                            MinecraftClient client = MinecraftClient.getInstance();
-                            client.execute(() -> client.setScreen(new ConfigScreen(null, configManager, moduleManager)));
-                            return 1;
-                        }))
                         .then(ClientCommandManager.literal("debug").executes(ctx -> {
                             boolean next = !configManager.get().debugMode;
                             configManager.get().debugMode = next;
