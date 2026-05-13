@@ -3,17 +3,11 @@ package io.github.keoz5.zombiezcompanion.config;
 /**
  * Per-module config for the Brightness module.
  *
- * <p>Holds the three logically distinct values the module orchestrates:
- * <ul>
- *     <li>{@link #gamma} — the value the user chose in the module's slider.
- *         The "configured" value. Persisted across sessions.</li>
- *     <li>{@link #vanillaGammaSnapshot} — the user's vanilla gamma captured the
- *         first time the module was enabled. Persisted so we can still restore
- *         it after a crash or restart. Cleared on disable once restored.</li>
- *     <li>The "applied" value is whatever currently lives in
- *         {@code MinecraftClient.getInstance().options.getGamma().getValue()} —
- *         never stored here; the SimpleOption is the single source of truth.</li>
- * </ul>
+ * <p>Single value: the configured gamma boost. The vanilla gamma SimpleOption
+ * is never mutated by the mod — the
+ * {@link io.github.keoz5.zombiezcompanion.mixin.LightmapTextureManagerMixin
+ * lightmap mixin} only substitutes the value at read time, so there is no
+ * "vanilla snapshot to restore" to track here.
  *
  * <p>Reference pattern for every future module: a tiny public-fields POJO
  * referenced by name from {@link ModConfig}, serialized by Gson, with safe
@@ -22,18 +16,11 @@ package io.github.keoz5.zombiezcompanion.config;
 public final class BrightnessConfig {
 
     /**
-     * Configured gamma applied while the module is enabled. Range is the
-     * vanilla SimpleOption clamp: {@code [0.0, 1.0]} — 0.0 = "Moody",
-     * 0.5 = vanilla default, 1.0 = "Bright". Clamped at the UI level; kept
-     * lenient here so a hand-edited config doesn't lose the user's value.
+     * Configured gamma applied while the module is enabled. Range is
+     * {@code [0.0, 15.0]} — vanilla clamps at 1.0, going beyond produces
+     * progressively "fuller" full bright until the lightmap pixels saturate
+     * to white (around 5–10 depending on biome). Default 15.0 = full bright
+     * everywhere. Clamped at the UI level.
      */
-    public double gamma = 1.0;
-
-    /**
-     * Snapshot of the user's vanilla gamma captured the first time the module
-     * was enabled in this install. Persisted across sessions so a crash mid-
-     * session does not lose the original value. Cleared on clean disable.
-     * Boxed because {@code null} is the meaningful "no snapshot held" state.
-     */
-    public Double vanillaGammaSnapshot = null;
+    public double gamma = 15.0;
 }

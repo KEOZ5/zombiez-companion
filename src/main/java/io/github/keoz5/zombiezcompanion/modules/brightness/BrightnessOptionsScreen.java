@@ -8,15 +8,13 @@ import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
 
-import java.util.Locale;
-
 /**
  * Options page for {@link BrightnessModule}: a single brightness slider.
  *
  * <p>Slider edits apply live so the user can dial in the right value while
  * watching the world dim or brighten in real time (provided the module is
- * enabled). The persisted config is saved on screen close — mirroring the
- * rest of the UI to avoid hundreds of fsync calls during a drag.
+ * enabled). The persisted config is saved on screen close — avoiding hundreds
+ * of fsync calls during a drag.
  */
 public final class BrightnessOptionsScreen extends ModuleOptionsScreen {
 
@@ -39,11 +37,11 @@ public final class BrightnessOptionsScreen extends ModuleOptionsScreen {
                 moduleRef.config().gamma,
                 BrightnessModule.GAMMA_MIN, BrightnessModule.GAMMA_MAX,
                 moduleRef::setGamma,
-                v -> Text.literal("Brightness: " + percent(v))));
+                v -> Text.literal("Luminosité : " + toPercent(v) + " %")));
     }
 
-    private static String percent(double v) {
-        return String.format(Locale.ROOT, "%d%%", Math.round(v * 100));
+    private static int toPercent(double gamma) {
+        return (int) Math.round(gamma / BrightnessModule.GAMMA_MAX * 100);
     }
 
     @Override
@@ -52,13 +50,13 @@ public final class BrightnessOptionsScreen extends ModuleOptionsScreen {
 
         int cx = (panelX1 + panelX2) / 2;
         ctx.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("Live override of the vanilla gamma slider."),
+                Text.literal("Force la luminosité au-delà de la limite vanilla."),
                 cx, contentY1 + 22, Theme.TEXT_PRIMARY);
         ctx.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("§80% = Moody  ·  50% = Default  ·  100% = Bright"),
+                Text.literal("§80 % = sombre   ·   100 % = full bright"),
                 cx, contentY1 + 36, Theme.TEXT_MUTED);
         ctx.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("§8Original value is restored when you disable the module."),
+                Text.literal("§8Le réglage vanilla n'est pas modifié — désactiver le module restaure l'éclairage normal."),
                 cx, contentY1 + 104, Theme.TEXT_MUTED);
     }
 }

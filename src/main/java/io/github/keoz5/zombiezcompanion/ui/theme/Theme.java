@@ -6,45 +6,50 @@ package io.github.keoz5.zombiezcompanion.ui.theme;
  * <p>Colors are ARGB ints ({@code 0xAARRGGBB}) as expected by Minecraft's
  * {@code DrawContext}. Sizes are in screen pixels (pre-GUI-scale).
  *
- * <p>The palette is dark and tinted green to match the ZombieZ theme without
- * being overbearing. Hover and selected variants are intentionally subtle so
- * the interface stays readable during gameplay.
+ * <p>Palette: muted blue-grey ("dashboard sober"). The accent is a desaturated
+ * blue used for selected tabs, focus borders, slider progress. Green is kept
+ * intentionally — but only for positive enable states on module cards, so it
+ * reads as a clear "this module is on" without flooding the rest of the UI.
  */
 public final class Theme {
 
     private Theme() {}
 
     // ── Backgrounds ──────────────────────────────────────────────────────
-    public static final int BG_DIM          = 0xC8000000;  // overlay behind the panel
-    public static final int BG_PANEL        = 0xFF161A14;
-    public static final int BG_BAND         = 0xFF11140F;  // title / footer bands
-    public static final int BG_CONTENT      = 0xFF181D15;  // central card area
-    public static final int BG_CARD         = 0xFF1F2419;
-    public static final int BG_CARD_HOVER   = 0xFF272E20;
-    public static final int BG_BTN          = 0xFF2A311F;
-    public static final int BG_BTN_HOVER    = 0xFF353F26;
-    public static final int BG_INPUT        = 0xFF0F120B;
-    public static final int BG_TAB_OFF      = 0xFF1F2419;
-    public static final int BG_TAB_OFF_HOV  = 0xFF272E20;
-    public static final int BG_TAB_ON       = 0xFF3E5D2A;
-    public static final int BG_TAB_ON_HOV   = 0xFF497034;
+    public static final int BG_DIM          = 0xC0000000;
+    public static final int BG_PANEL        = 0xFF1A1F26;
+    public static final int BG_BAND         = 0xFF13171D;
+    public static final int BG_CONTENT      = 0xFF1D232B;
+    public static final int BG_CARD         = 0xFF222932;
+    public static final int BG_CARD_HOVER   = 0xFF2A323D;
+    public static final int BG_BTN          = 0xFF252C36;
+    public static final int BG_BTN_HOVER    = 0xFF2F3845;
+    public static final int BG_INPUT        = 0xFF111418;
+    public static final int BG_TAB_OFF      = 0xFF222932;
+    public static final int BG_TAB_OFF_HOV  = 0xFF2A323D;
+    public static final int BG_TAB_ON       = 0xFF2D5288;
+    public static final int BG_TAB_ON_HOV   = 0xFF36629E;
 
     // ── Borders / dividers ──────────────────────────────────────────────
-    public static final int BORDER          = 0xFF2C3322;
-    public static final int BORDER_STRONG   = 0xFF3A4530;
-    public static final int BORDER_FOCUS    = 0xFF6FA94A;
+    public static final int BORDER          = 0xFF2A323D;
+    public static final int BORDER_STRONG   = 0xFF3A4250;
+    public static final int BORDER_FOCUS    = 0xFF5A8FCC;
 
     // ── Text ─────────────────────────────────────────────────────────────
-    public static final int TEXT_PRIMARY    = 0xFFE7EFE0;
-    public static final int TEXT_MUTED      = 0xFF7C8474;
-    public static final int TEXT_DISABLED   = 0xFF4A5043;
-    public static final int TEXT_ACCENT     = 0xFFAFD78F;
+    public static final int TEXT_PRIMARY    = 0xFFE3E8EF;
+    public static final int TEXT_MUTED      = 0xFF7B8696;
+    public static final int TEXT_DISABLED   = 0xFF4A5160;
+    public static final int TEXT_ACCENT     = 0xFF89B0E0;
 
-    // ── Module enable state ─────────────────────────────────────────────
-    public static final int STATE_ON_BG     = 0xFF3F7A2C;
-    public static final int STATE_ON_BG_H   = 0xFF4D9136;
-    public static final int STATE_OFF_BG    = 0xFF7A2C2C;
-    public static final int STATE_OFF_BG_H  = 0xFF913636;
+    // ── Module enable state — discreet green for ON, muted red for OFF ──
+    public static final int STATE_ON_BG     = 0xFF3E7A4D;
+    public static final int STATE_ON_BG_H   = 0xFF4A8F5A;
+    public static final int STATE_OFF_BG    = 0xFF7A3E3E;
+    public static final int STATE_OFF_BG_H  = 0xFF8F4A4A;
+
+    // ── Accent fill — used for slider progress, generic positive accents ──
+    public static final int ACCENT_FILL     = 0xFF2D5288;
+    public static final int ACCENT_FILL_H   = 0xFF36629E;
 
     // ── Layout: paddings ────────────────────────────────────────────────
     public static final int PADDING_LG = 14;
@@ -52,11 +57,8 @@ public final class Theme {
     public static final int PADDING_SM = 6;
 
     // ── Layout: panel chrome ────────────────────────────────────────────
-    /** Floor for the visible margin between the panel and the screen edge. */
     public static final int PANEL_MARGIN_MIN = 24;
-    /** Hard cap on panel width — beyond this we keep the panel centered. */
     public static final int PANEL_MAX_WIDTH  = 1000;
-    /** Hard cap on panel height. */
     public static final int PANEL_MAX_HEIGHT = 620;
 
     public static final int TITLE_BAND_H    = 30;

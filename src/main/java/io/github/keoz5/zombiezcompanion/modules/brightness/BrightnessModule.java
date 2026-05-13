@@ -10,40 +10,36 @@ import io.github.keoz5.zombiezcompanion.log.LogCategory;
 import net.minecraft.client.gui.screen.Screen;
 
 /**
- * Brightness module — overrides the vanilla gamma slider while enabled.
+ * Brightness module — full-bright override of the lightmap gamma.
  *
- * <p>Three distinct values are managed:
+ * <p>The vanilla gamma {@code SimpleOption} is never written. The
+ * {@link io.github.keoz5.zombiezcompanion.mixin.LightmapTextureManagerMixin
+ * lightmap mixin} substitutes the gamma value at the only point where it
+ * actually matters: inside the lightmap texture update. As a side benefit
+ * the boost can exceed the vanilla clamp at 1.0 — at high values the lerp
+ * formula saturates every lightmap pixel to white = real full bright (caves
+ * lit as daylight), which the vanilla slider physically cannot reach.
+ *
+ * <p>Three logical values, kept cleanly separated:
  * <ul>
- *     <li><b>configured</b> ({@link BrightnessConfig#gamma}) — what the user
- *         chose in the module's slider.</li>
- *     <li><b>vanilla snapshot</b> ({@link BrightnessConfig#vanillaGammaSnapshot})
- *         — captured the first time the module is enabled; restored on disable.
- *         Persisted so a crash mid-session does not lose the user's original.</li>
- *     <li><b>applied</b> — the live value in {@code SimpleOption}; queried
- *         through {@link BrightnessOverride#readCurrent()}.</li>
+ *     <li><b>configured</b> ({@link BrightnessConfig#gamma}) — the slider value.</li>
+ *     <li><b>vanilla</b> — whatever the user set in vanilla Video Settings; never
+ *         touched, always queryable via {@code options.getGamma().getValue()}.</li>
+ *     <li><b>applied</b> — what the lightmap actually uses; equal to
+ *         {@code configured} when the module is on, otherwise to vanilla.</li>
  * </ul>
  *
- * <p>State transitions:
- * <pre>
- *   onEnable()           snapshot ← read vanilla (if not yet snapshot'd)
- *                        apply(configured)
- *   onDisable()          apply(snapshot) ; snapshot ← null
- *   setGamma(v) (live)   configured ← v ; if enabled, apply(v)
- * </pre>
- *
- * <p>Default state is <b>disabled</b> so installing the mod never silently
- * changes the user's lighting.
+ * <p>Default state is <b>disabled</b>; installing the mod never silently
+ * changes lighting.
  */
 public final class BrightnessModule implements Module {
 
     public static final String ID = "brightness";
 
-    /** Vanilla SimpleOption clamp — values outside this range are silently clamped by the engine anyway. */
     public static final double GAMMA_MIN = 0.0;
-    public static final double GAMMA_MAX = 1.0;
+    public static final double GAMMA_MAX = 15.0;
 
     private ConfigManager configManager;
-    private boolean enabled;
 
     @Override public String id() { return ID; }
     @Override public String displayName() { return "Brightness"; }
@@ -58,32 +54,22 @@ public final class BrightnessModule implements Module {
 
     @Override
     public void onEnable() {
-        BrightnessConfig cfg = config();
-        snapshotVanillaIfMissing(cfg);
-        if (BrightnessOverride.apply(clamp(cfg.gamma))) {
-            Log.debug(LogCategory.MODULE, "brightness applied gamma=" + cfg.gamma);
-        }
-        enabled = true;
+        BrightnessOverride.enable(clampedGamma());
+        Log.debug(LogCategory.MODULE, "brightness on, target=" + config().gamma);
     }
 
     @Override
     public void onDisable() {
-        enabled = false;
-        BrightnessConfig cfg = config();
-        if (cfg.vanillaGammaSnapshot != null) {
-            BrightnessOverride.apply(cfg.vanillaGammaSnapshot);
-            Log.debug(LogCategory.MODULE, "brightness restored vanilla=" + cfg.vanillaGammaSnapshot);
-            cfg.vanillaGammaSnapshot = null;
-            configManager.save();
-        }
+        BrightnessOverride.disable();
+        Log.debug(LogCategory.MODULE, "brightness off");
     }
 
     /** Called by the options screen on every slider tick. */
     public void setGamma(double newGamma) {
         double clamped = clamp(newGamma);
         config().gamma = clamped;
-        if (enabled) {
-            BrightnessOverride.apply(clamped);
+        if (BrightnessOverride.isActive()) {
+            BrightnessOverride.setTarget(clamped);
         }
     }
 
@@ -96,14 +82,7 @@ public final class BrightnessModule implements Module {
         return configManager.get().brightness;
     }
 
-    private void snapshotVanillaIfMissing(BrightnessConfig cfg) {
-        if (cfg.vanillaGammaSnapshot != null) return;  // already captured (survives restarts)
-        Double current = BrightnessOverride.readCurrent();
-        if (current == null) return;
-        cfg.vanillaGammaSnapshot = current;
-        configManager.save();
-        Log.debug(LogCategory.MODULE, "brightness captured vanilla snapshot=" + current);
-    }
+    private double clampedGamma() { return clamp(config().gamma); }
 
     private static double clamp(double v) {
         return Math.max(GAMMA_MIN, Math.min(GAMMA_MAX, v));

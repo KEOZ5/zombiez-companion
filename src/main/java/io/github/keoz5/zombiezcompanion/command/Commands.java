@@ -13,7 +13,7 @@ import net.minecraft.text.Text;
  *
  * <p>Subcommands:
  * <ul>
- *     <li>{@code /zzc debug} — toggle global debug mode (persisted)</li>
+ *     <li>{@code /zzc debug}  — toggle global debug mode (persisted)</li>
  *     <li>{@code /zzc status} — list modules with their enable state</li>
  *     <li>{@code /zzc reload} — force-save the current config to disk</li>
  * </ul>
@@ -21,6 +21,9 @@ import net.minecraft.text.Text;
  * <p>The config screen is opened via the Right Shift keybind only — running
  * {@code setScreen} from inside a client command was unreliable across
  * Fabric versions, so the command has been removed in favor of the keybind.
+ *
+ * <p>User-facing chat feedback is in French; log lines stay English (they
+ * target devs grepping {@code latest.log}).
  */
 public final class Commands {
 
@@ -34,25 +37,25 @@ public final class Commands {
                             configManager.get().debugMode = next;
                             configManager.save();
                             ctx.getSource().sendFeedback(Text.literal(
-                                    "[ZZC] Debug mode " + (next ? "§aON" : "§cOFF") + "§r"));
+                                    "[ZZC] Mode debug " + (next ? "§aACTIVÉ" : "§cDÉSACTIVÉ") + "§r"));
                             Log.info("Debug mode " + (next ? "ON" : "OFF"));
                             return 1;
                         }))
                         .then(ClientCommandManager.literal("status").executes(ctx -> {
-                            StringBuilder sb = new StringBuilder("[ZZC] Modules:\n");
+                            StringBuilder sb = new StringBuilder("[ZZC] Modules :\n");
                             for (Module m : moduleManager.modules()) {
                                 sb.append("  • ").append(m.id())
-                                        .append(": ")
-                                        .append(moduleManager.isEnabled(m.id()) ? "§aON" : "§cOFF")
+                                        .append(" : ")
+                                        .append(moduleManager.isEnabled(m.id()) ? "§aACTIVÉ" : "§cDÉSACTIVÉ")
                                         .append("§r\n");
                             }
-                            sb.append("Debug: ").append(configManager.get().debugMode ? "§aON" : "§cOFF");
+                            sb.append("Debug : ").append(configManager.get().debugMode ? "§aACTIVÉ" : "§cDÉSACTIVÉ");
                             ctx.getSource().sendFeedback(Text.literal(sb.toString()));
                             return 1;
                         }))
                         .then(ClientCommandManager.literal("reload").executes(ctx -> {
                             configManager.save();
-                            ctx.getSource().sendFeedback(Text.literal("[ZZC] Config saved"));
+                            ctx.getSource().sendFeedback(Text.literal("[ZZC] Configuration sauvegardée"));
                             return 1;
                         }))
                 )

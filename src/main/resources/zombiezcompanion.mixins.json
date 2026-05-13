@@ -3,7 +3,9 @@
   "minVersion": "0.8",
   "package": "io.github.keoz5.zombiezcompanion.mixin",
   "compatibilityLevel": "JAVA_21",
-  "client": [],
+  "client": [
+    "LightmapTextureManagerMixin"
+  ],
   "injectors": {
     "defaultRequire": 1
   }

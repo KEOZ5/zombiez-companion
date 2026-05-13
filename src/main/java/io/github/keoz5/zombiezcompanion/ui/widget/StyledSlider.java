@@ -65,10 +65,11 @@ public final class StyledSlider extends SliderWidget {
         ctx.fill(x1, y1, x2, y2, Theme.BG_INPUT);
         ctx.drawBorder(x1, y1, getWidth(), getHeight(), Theme.BORDER);
 
-        // Progress fill
+        // Progress fill — uses the blue accent so the slider doesn't read as
+        // a toggle state. The green state colors are reserved for ENABLED.
         int fillW = (int) Math.round(this.value * (getWidth() - 4));
         if (fillW > 0) {
-            ctx.fill(x1 + 2, y1 + 2, x1 + 2 + fillW, y2 - 2, Theme.STATE_ON_BG);
+            ctx.fill(x1 + 2, y1 + 2, x1 + 2 + fillW, y2 - 2, Theme.ACCENT_FILL);
         }
 
         // Handle

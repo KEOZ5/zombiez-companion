@@ -45,7 +45,7 @@ public abstract class ModuleOptionsScreen extends Screen {
         int btnY = footerY1 + (Theme.FOOTER_BAND_H - btnH) / 2;
         addDrawableChild(new StyledButton(
                 panelX1 + Theme.PADDING_MD, btnY, 100, btnH,
-                Text.literal("< Back"),
+                Text.literal("< Retour"),
                 b -> close(),
                 Theme.BG_BTN, Theme.BG_BTN_HOVER, Theme.TEXT_PRIMARY));
 

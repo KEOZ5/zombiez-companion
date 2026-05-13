@@ -10,10 +10,10 @@ package io.github.keoz5.zombiezcompanion.core;
  */
 public enum ModuleCategory {
     HUD("HUD"),
-    ALERTS("Alerts"),
-    TRACKING("Tracking"),
-    VISUAL("Visual"),
-    UTILITY("Utility");
+    ALERTS("Alertes"),
+    TRACKING("Suivi"),
+    VISUAL("Visuel"),
+    UTILITY("Utilitaire");
 
     private final String displayName;
 

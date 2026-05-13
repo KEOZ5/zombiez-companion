@@ -80,7 +80,7 @@ public final class ConfigScreen extends Screen {
         // ── Toolbar widgets ──────────────────────────────────────────────
         int tabsX = panelX1 + Theme.PADDING_MD;
         int tabsY = toolbarY1 + (Theme.TOOLBAR_BAND_H - Theme.TAB_HEIGHT) / 2;
-        tabsX += addTab("ALL", null, tabsX, tabsY) + Theme.TAB_GAP;
+        tabsX += addTab("TOUS", null, tabsX, tabsY) + Theme.TAB_GAP;
 
         List<ModuleCategory> usedCategories = moduleManager.modules().stream()
                 .map(Module::category)
@@ -98,7 +98,7 @@ public final class ConfigScreen extends Screen {
                 textRenderer, searchX, searchY, Theme.SEARCH_WIDTH, Theme.TAB_HEIGHT,
                 Text.literal(""));
         searchField.setMaxLength(64);
-        searchField.setPlaceholder(Text.literal("§7Search modules..."));
+        searchField.setPlaceholder(Text.literal("§7Rechercher un module..."));
         searchField.setText(searchText);
         searchField.setChangedListener(s -> {
             searchText = s;
@@ -131,7 +131,7 @@ public final class ConfigScreen extends Screen {
 
         addDrawableChild(new StyledButton(
                 panelX2 - Theme.PADDING_MD - 100, btnY, 100, btnH,
-                Text.translatable("gui.done"),
+                Text.literal("Fermer"),
                 btn -> close(),
                 Theme.BG_BTN, Theme.BG_BTN_HOVER, Theme.TEXT_PRIMARY));
     }
@@ -157,7 +157,7 @@ public final class ConfigScreen extends Screen {
     }
 
     private Text debugLabel() {
-        return Text.literal("Debug: " + (configManager.get().debugMode ? "§aON" : "§cOFF") + "§r");
+        return Text.literal("Debug : " + (configManager.get().debugMode ? "§aON" : "§cOFF") + "§r");
     }
 
     /** Returns the rendered tab width. */
@@ -233,7 +233,7 @@ public final class ConfigScreen extends Screen {
     }
 
     private static Text toggleLabel(boolean enabled) {
-        return Text.literal(enabled ? "ENABLED" : "DISABLED");
+        return Text.literal(enabled ? "ACTIVÉ" : "DÉSACTIVÉ");
     }
 
     private void toggleModule(Module m, net.minecraft.client.gui.widget.ButtonWidget btn) {
@@ -300,11 +300,11 @@ public final class ConfigScreen extends Screen {
         // Empty state
         if (cards.isEmpty()) {
             String primary = moduleManager.modules().isEmpty()
-                    ? "No modules registered yet."
-                    : "No modules match this filter.";
+                    ? "Aucun module n'est encore enregistré."
+                    : "Aucun module ne correspond à ce filtre.";
             String hint = moduleManager.modules().isEmpty()
-                    ? "Module cards will appear here as features are added."
-                    : "Try clearing the search or selecting another tab.";
+                    ? "Les modules apparaîtront ici au fur et à mesure."
+                    : "Essayez d'effacer la recherche ou de changer d'onglet.";
             int cx = (panelX1 + panelX2) / 2;
             int cy = (contentY1 + contentY2) / 2 - 6;
             ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(primary), cx, cy, Theme.TEXT_MUTED);
@@ -317,7 +317,7 @@ public final class ConfigScreen extends Screen {
     private String moduleCountLabel() {
         int total = moduleManager.modules().size();
         int shown = cards.size();
-        if (total == 0) return "0 modules";
+        if (total == 0) return "0 module";
         if (shown == total) return total + (total == 1 ? " module" : " modules");
         return shown + " / " + total + " modules";
     }
