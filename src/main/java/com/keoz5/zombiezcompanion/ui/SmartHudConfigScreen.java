@@ -12,11 +12,13 @@ import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import org.jetbrains.annotations.Nullable;
 
+import java.util.function.Consumer;
+
 public final class SmartHudConfigScreen extends Screen {
 
-    private final Screen          parent;
-    private final ConfigManager   configManager;
-    private final SmartHudConfig  config;
+    private final Screen         parent;
+    private final ConfigManager  configManager;
+    private final SmartHudConfig config;
 
     private TextFieldWidget xField;
     private TextFieldWidget yField;
@@ -32,43 +34,52 @@ public final class SmartHudConfigScreen extends Screen {
     @Override
     protected void init() {
         int cx   = width / 2;
-        int y    = 50;
+        int y    = 48;
         int rowH = 24;
 
-        // Position fields
-        addDrawableChild(Text.literal("Position HUD (X / Y):"));
-
+        // ---- Position fields (X / Y) ----
         xField = new TextFieldWidget(textRenderer, cx - 155, y, 48, 18, Text.literal("X"));
         xField.setText(String.valueOf(config.x));
-        xField.setChangedListener(s -> { try { config.x = Integer.parseInt(s.trim()); } catch (NumberFormatException ignored) {} });
+        xField.setChangedListener(s -> {
+            try { config.x = Integer.parseInt(s.trim()); }
+            catch (NumberFormatException ignored) {}
+        });
         addDrawableChild(xField);
 
         yField = new TextFieldWidget(textRenderer, cx - 100, y, 48, 18, Text.literal("Y"));
         yField.setText(String.valueOf(config.y));
-        yField.setChangedListener(s -> { try { config.y = Integer.parseInt(s.trim()); } catch (NumberFormatException ignored) {} });
+        yField.setChangedListener(s -> {
+            try { config.y = Integer.parseInt(s.trim()); }
+            catch (NumberFormatException ignored) {}
+        });
         addDrawableChild(yField);
         y += rowH;
 
+        // ---- Toggle rows ----
         addToggleRow(cx, y, "Fond semi-transparent", config.showBackground,  v -> config.showBackground  = v); y += rowH;
-        addToggleRow(cx, y, "Zone",                  config.showZone,         v -> config.showZone         = v); y += rowH;
-        addToggleRow(cx, y, "Classe",                config.showClass,        v -> config.showClass        = v); y += rowH;
-        addToggleRow(cx, y, "Mutation",              config.showMutation,     v -> config.showMutation     = v); y += rowH;
-        addToggleRow(cx, y, "Streak",                config.showStreak,       v -> config.showStreak       = v); y += rowH;
-        addToggleRow(cx, y, "Évènement actif",       config.showActiveEvent,  v -> config.showActiveEvent  = v); y += rowH;
-        addToggleRow(cx, y, "Durée de session",      config.showSessionTime,  v -> config.showSessionTime  = v); y += rowH;
+        addToggleRow(cx, y, "Zone",                  config.showZone,        v -> config.showZone        = v); y += rowH;
+        addToggleRow(cx, y, "Classe",                config.showClass,       v -> config.showClass       = v); y += rowH;
+        addToggleRow(cx, y, "Mutation",              config.showMutation,    v -> config.showMutation    = v); y += rowH;
+        addToggleRow(cx, y, "Streak",                config.showStreak,      v -> config.showStreak      = v); y += rowH;
+        addToggleRow(cx, y, "Évènement actif",       config.showActiveEvent, v -> config.showActiveEvent = v); y += rowH;
+        addToggleRow(cx, y, "Durée de session",      config.showSessionTime, v -> config.showSessionTime = v);
 
-        addDrawableChild(ButtonWidget.builder(Text.literal("Sauvegarder & Retour"), btn -> close())
-                .dimensions(cx - 75, height - 32, 150, 20).build());
+        // ---- Save & back ----
+        addDrawableChild(ButtonWidget.builder(
+                Text.literal("Sauvegarder & Retour"), btn -> close()
+        ).dimensions(cx - 75, height - 32, 150, 20).build());
     }
 
     private void addToggleRow(int cx, int y, String label, boolean initial,
-                               java.util.function.Consumer<Boolean> setter) {
+                              Consumer<Boolean> setter) {
         addDrawableChild(new ToggleButtonWidget(cx - 155, y, 50, 20, initial, v -> {
             setter.accept(v);
             configManager.save();
         }));
+        // Use a read-only styled button as a label (no action)
         addDrawableChild(ButtonWidget.builder(
-                Text.literal(label).formatted(Formatting.WHITE), btn -> {}
+                Text.literal(label).formatted(Formatting.WHITE),
+                btn -> {}
         ).dimensions(cx - 100, y, 255, 20).build());
     }
 
@@ -76,8 +87,12 @@ public final class SmartHudConfigScreen extends Screen {
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         renderBackground(context, mouseX, mouseY, delta);
         context.drawCenteredTextWithShadow(textRenderer, title, width / 2, 16, 0xFFFFFF);
-        context.drawTextWithShadow(textRenderer, "X", xField.getX() - 12, xField.getY() + 5, 0xAAAAAA);
-        context.drawTextWithShadow(textRenderer, "Y", yField.getX() - 12, yField.getY() + 5, 0xAAAAAA);
+
+        // Labels for X/Y fields — drawn before super so they appear behind the fields
+        int fieldY = 53; // vertically centered in the 18px field
+        context.drawTextWithShadow(textRenderer, "X :", xField.getX() - 18, fieldY, 0xAAAAAA);
+        context.drawTextWithShadow(textRenderer, "Y :", yField.getX() - 18, fieldY, 0xAAAAAA);
+
         super.render(context, mouseX, mouseY, delta);
     }
 
