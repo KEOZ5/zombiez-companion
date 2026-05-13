@@ -1,112 +1,143 @@
 # create-issues.ps1
-# Run this script after installing GitHub CLI (https://cli.github.com/) and running `gh auth login`
+# Creates all tracked GitHub issues for ZombieZ Companion.
+# Requires GitHub CLI: https://cli.github.com/  →  gh auth login
 # Usage: .\create-issues.ps1
 
 $repo = "KEOZ5/zombiez-companion"
 
 function New-Issue($title, $body, $labels) {
+    Write-Host "Creating: $title"
     gh issue create --repo $repo --title $title --body $body --label $labels
 }
 
-Write-Host "Creating GitHub issues for ZombieZ Companion..."
+# ── Phase 1: Architecture & setup ─────────────────────────────────────────
 
 New-Issue `
     "[Parser] Calibrate ScoreboardParser patterns for real ZombieZ data" `
     "## Context
-The ScoreboardParser currently uses provisional regex patterns for zone, class, and streak detection.
+ScoreboardParser uses provisional regex for zone/class/streak detection.
 
-## What to do
-1. Enable \`debugMode\` in the in-game config screen (or set \`debugMode: true\` in config.json)
-2. Join the ZombieZ server
-3. Open \`.minecraft/logs/latest.log\` and search for \`[ScoreboardParser]\`
-4. Note the exact \`clean=\` values printed for each sidebar line
-5. Update the patterns in \`ScoreboardParser.java\` (ZONE_PATTERN, CLASS_PATTERN, STREAK_PATTERN)
+## How to calibrate
+1. Enable debugMode (\`/zzc debug\`)
+2. Join ZombieZ server
+3. Filter log on \`[ZombieZ][DEBUG][Scoreboard]\`
+4. Copy all \`clean=\` lines
+5. Update \`ZONE_PATTERN\`, \`CLASS_PATTERN\`, \`STREAK_PATTERN\` in ScoreboardParser.java
 
-## Files
+## Expected log format
+\`\`\`
+[ZombieZ][DEBUG][Scoreboard] title=""
+[ZombieZ][DEBUG][Scoreboard] clean="" score=
+\`\`\`
+
+## File
 \`src/main/java/com/keoz5/zombiezcompanion/parser/ScoreboardParser.java\`" `
-    "parser,needs-real-data"
+    "parser,needs-real-data,calibration"
 
 New-Issue `
-    "[Parser] Calibrate loot/kill detection patterns for real ZombieZ messages" `
+    "[Parser] Calibrate kill/loot/event detection patterns for real ZombieZ messages" `
     "## Context
-\`SessionTrackerModule\` and \`ChatMessageParser\` contain provisional regex patterns for detecting kills and loot.
+ChatMessageParser and SessionTrackerModule use provisional patterns.
 
-## What to do
-1. Enable \`debugMode\` — all chat messages are logged with \`[SessionTracker] Chat:\`
-2. Play on ZombieZ and get a kill, pick up loot, complete an event
-3. Copy the exact chat messages from the log
-4. Update:
-   - \`LOOT_PATTERNS\` list in \`SessionTrackerModule.java\`
-   - \`KILL_DIRECT_PATTERN\` in \`SessionTrackerModule.java\`
-   - \`KILL_PATTERN\` in \`ChatMessageParser.java\`
-   - \`EVENT_PATTERNS\` in \`ChatMessageParser.java\`
+## How to calibrate
+1. Enable debugMode (\`/zzc debug\`)
+2. Join ZombieZ server
+3. Filter log on \`[ZombieZ][DEBUG][Chat:Raw]\` — ALL messages are logged
+4. Get kills, rewards, events in-game
+5. Update patterns in ChatMessageParser.java and SessionTrackerModule.java
 
 ## Files
-- \`src/main/java/com/keoz5/zombiezcompanion/modules/tracker/SessionTrackerModule.java\`
-- \`src/main/java/com/keoz5/zombiezcompanion/parser/ChatMessageParser.java\`" `
-    "parser,needs-real-data"
+- \`ChatMessageParser.java\` → EVENT_PATTERNS, KILL_PATTERN
+- \`SessionTrackerModule.java\` → LOOT_PATTERNS, KILL_DIRECT_PATTERN" `
+    "parser,needs-real-data,calibration"
 
 New-Issue `
-    "[HUD] Verify HudRenderCallback API with installed Fabric version" `
+    "[Parser] Calibrate BossBarParser mutation/event detection" `
     "## Context
-The mod uses \`HudRenderCallback.EVENT\` with signature \`(DrawContext, RenderTickCounter)\`.
-This is correct for Fabric API >= 0.100 (our target: 0.114.0+1.21.4).
+BossBarParser uses keyword-based detection for mutation bossbars.
 
-## What to verify at build time
-- \`RenderTickCounter\` resolves at \`net.minecraft.client.render.RenderTickCounter\`
-- \`tickCounter.getTickDelta(true)\` compiles without error
-- If using a different fabric-api version, update the signature accordingly
+## How to calibrate
+1. Enable debugMode (\`/zzc debug\`)
+2. Join ZombieZ server
+3. Filter log on \`[ZombieZ][DEBUG][Bossbar]\`
+4. Let a mutation charge / activate an event with a bossbar
+5. Copy the \`name=\` lines
+6. Update parseMutation() and parseActiveEvent() in BossBarParser.java
 
-## Fallback
-If Fabric API < 0.100, replace:
+## File
+\`src/main/java/com/keoz5/zombiezcompanion/parser/BossBarParser.java\`" `
+    "parser,needs-real-data,calibration"
+
+New-Issue `
+    "[Build] Verify HudRenderCallback API compiles with fabric-api 0.114.0+1.21.4" `
+    "## Context
+ZombieZCompanionClient uses:
 \`\`\`java
 HudRenderCallback.EVENT.register((drawContext, tickCounter) ->
     moduleRegistry.onHudRender(drawContext, tickCounter.getTickDelta(true)));
 \`\`\`
-with:
-\`\`\`java
-HudRenderCallback.EVENT.register((drawContext, delta) ->
-    moduleRegistry.onHudRender(drawContext, delta));
-\`\`\`
+This requires RenderTickCounter from net.minecraft.client.render (Yarn mapping).
 
-## Files
-\`src/main/java/com/keoz5/zombiezcompanion/ZombieZCompanionClient.java\`" `
+## Verify
+- [ ] \`./gradlew build\` completes without errors
+- [ ] RenderTickCounter resolves correctly
+- [ ] HUD overlay renders in game
+
+## Fallback if build fails
+Replace the lambda signature with \`(ctx, delta)\` and remove \`.getTickDelta(true)\`.
+
+## File
+\`ZombieZCompanionClient.java\`" `
     "build,hud,compatibility"
 
 New-Issue `
-    "[Keybind] Default menu key set to Right Shift — may conflict with sprint" `
+    "[Keybind] Right Shift may conflict with sprint — document and consider alternatives" `
     "## Context
-The default keybind to open the ZZC menu was changed from Y to Right Shift (\`GLFW_KEY_RIGHT_SHIFT\`).
+Default open-menu key is Right Shift (\`GLFW_KEY_RIGHT_SHIFT\`). This may conflict with sprint on some setups.
 
-## Potential conflict
-Some Minecraft control setups use Right Shift for sprinting or other actions.
-Users can rebind it in **Options → Controls → ZombieZ Companion**.
-
-## To change the default
-Edit \`ZombieZCompanionClient.registerKeybind()\`:
-\`\`\`java
-GLFW.GLFW_KEY_RIGHT_SHIFT   // current default
-\`\`\`
-Replace with any GLFW key constant, e.g. \`GLFW.GLFW_KEY_HOME\`.
-
-## Files
-\`src/main/java/com/keoz5/zombiezcompanion/ZombieZCompanionClient.java\`" `
+## Resolution
+Rebind in Options → Controls → ZombieZ Companion.
+If a better default is found after testing, update \`registerKeybind()\` in ZombieZCompanionClient.java." `
     "keybind,ux"
 
 New-Issue `
-    "[Debug] Add in-game debug overlay showing raw scoreboard + HUD state" `
+    "[Data-collection] Collect real ZombieZ in-game data to finalize all patterns" `
+    "## This is the primary field-testing issue
+
+Follow the procedure in CLAUDE.md §'Procédure de collecte des données in-game'.
+
+## Checklist
+- [ ] Enable debugMode (\`/zzc debug\`)
+- [ ] Collect Scoreboard lines (several contexts: spawn, combat, event)
+- [ ] Collect Kill messages
+- [ ] Collect Loot/reward messages
+- [ ] Collect Bossbar names (mutation, events)
+- [ ] Collect Event announcement messages (Zombie Bombe, etc.)
+- [ ] Fill out the return template from CLAUDE.md and send for pattern update
+
+## After data collection
+Open issues #1, #2, #3 and update the patterns." `
+    "needs-real-data,field-test,priority"
+
+New-Issue `
+    "[Enhancement] Add in-game debug overlay for real-time HUD state inspection" `
     "## Context
-Currently debug info is printed to the log file only.
+Currently debug info only goes to the log file.
 
-## Proposed improvement
-When \`debugMode\` is enabled, optionally show a small in-game overlay in the top-left corner
-displaying the raw parsed values (zone, class, streak, mutation state) so they can be verified
-without opening the log file.
+## Proposed
+When debugMode is on, show a small corner overlay displaying:
+- raw parsed zone/class/streak
+- mutationReady flag
+- activeEvent string
+- session duration
 
-## Acceptance criteria
-- Toggled by \`debugMode\` flag (already in \`ModConfig\`)
-- Shows current \`HudState\` field values
-- Does not appear in production (debugMode defaults to false)" `
+This avoids having to read the log file to verify parsing.
+
+## Acceptance
+- Only shown when debugMode = true
+- Toggle with /zzc debug
+- Does not affect production behavior" `
     "enhancement,debug,hud"
 
-Write-Host "Done. Check https://github.com/$repo/issues"
+Write-Host ""
+Write-Host "All issues created. See: https://github.com/$repo/issues"

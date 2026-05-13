@@ -1,6 +1,6 @@
 package com.keoz5.zombiezcompanion.parser;
 
-import com.keoz5.zombiezcompanion.util.ModLogger;
+import com.keoz5.zombiezcompanion.util.DebugLogger;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.ScoreboardDisplaySlot;
 import net.minecraft.scoreboard.ScoreboardEntry;
@@ -16,56 +16,51 @@ import java.util.stream.Collectors;
 /**
  * Reads the sidebar scoreboard and extracts typed game-state objects.
  *
- * ┌─────────────────────────────────────────────────────────────────────────┐
- * │  ALL PATTERNS ARE PROVISIONAL — based on common ZombieZ-style servers  │
- * │  Enable debugMode in ModConfig then join ZombieZ to see the real lines  │
- * │  printed in the log, and adjust the regexes accordingly.               │
- * └─────────────────────────────────────────────────────────────────────────┘
- *
- * How to calibrate:
- *  1. Set debugMode = true in config screen or directly in config.json
- *  2. Join the ZombieZ server
- *  3. Open the Minecraft log (.minecraft/logs/latest.log)
- *  4. Search for "[ScoreboardParser]" entries
- *  5. Copy the "clean=" values and adapt the patterns below
+ * ╔══════════════════════════════════════════════════════════════════════════╗
+ * ║  ALL PATTERNS ARE PROVISIONAL — must be calibrated on the real server  ║
+ * ║  See CLAUDE.md §"Procédure de collecte des données in-game"            ║
+ * ║  Enable debugMode → join ZombieZ → filter log on [ZombieZ][DEBUG][Scoreboard]  ║
+ * ╚══════════════════════════════════════════════════════════════════════════╝
  */
 public final class ScoreboardParser {
 
     private ScoreboardParser() {}
 
-    // ---- Pattern registry -----------------------------------------------
-    // Each record holds: regex to match, and how to extract the value from it.
+    // ── Pattern registry ─────────────────────────────────────────────────
 
     private record LinePattern(Pattern regex, String fieldName) {}
 
     /**
-     * Zone line — matches things like "Zone: Forêt", "Secteur: B3", "Zone - Centre".
-     * TODO: replace with exact ZombieZ format once observed in-game.
+     * Zone line.
+     * TODO[DATA-NEEDED] Replace regex with exact ZombieZ sidebar zone line format.
+     * Calibration: enable debugMode, join ZombieZ, copy clean= lines, look for
+     * the line that shows the current area/sector/zone.
      */
     private static final LinePattern ZONE_PATTERN = new LinePattern(
-            Pattern.compile("(?i)^(?:zone|secteur|area)\\s*[:\\-]?\\s*(.+)$"),
+            Pattern.compile("(?i)^(?:zone|secteur|area|carte)\\s*[:\\-]?\\s*(.+)$"),
             "zone"
     );
 
     /**
-     * Class line — matches "Classe: Soldat", "Class: Tank", etc.
-     * TODO: replace with exact ZombieZ format.
+     * Class line.
+     * TODO[DATA-NEEDED] Replace regex with exact ZombieZ class line format.
+     * Calibration: look for the line showing your current in-game class/role.
      */
     private static final LinePattern CLASS_PATTERN = new LinePattern(
-            Pattern.compile("(?i)^(?:classe?|class)\\s*[:\\-]?\\s*(.+)$"),
+            Pattern.compile("(?i)^(?:classe?|class|r[oô]le|role)\\s*[:\\-]?\\s*(.+)$"),
             "class"
     );
 
     /**
-     * Streak line — matches "Streak: 5", "Série: 3", "Kill streak: 7".
-     * TODO: replace with exact ZombieZ format.
+     * Streak line.
+     * TODO[DATA-NEEDED] Replace regex with exact ZombieZ streak line format.
+     * Calibration: get a kill streak, look for the line that changes with your kills.
      */
     private static final Pattern STREAK_PATTERN =
-            Pattern.compile("(?i)(?:streak|s[eé]rie|kill.?streak)\\s*[:\\-]?\\s*(\\d+)");
+            Pattern.compile("(?i)(?:streak|s[eé]rie|kill.?streak|combo)\\s*[:\\-]?\\s*(\\d+)");
 
-    // ---- Public API -----------------------------------------------------
+    // ── Public API ───────────────────────────────────────────────────────
 
-    /** Zone extracted from sidebar, or null. */
     public static @Nullable ParsedZoneInfo parseZone(Scoreboard scoreboard) {
         return getLines(scoreboard).stream()
                 .map(line -> tryMatch(line, ZONE_PATTERN.regex()))
@@ -75,7 +70,6 @@ public final class ScoreboardParser {
                 .orElse(null);
     }
 
-    /** Player class extracted from sidebar, or null. */
     public static @Nullable ParsedClassInfo parseClass(Scoreboard scoreboard) {
         return getLines(scoreboard).stream()
                 .map(line -> tryMatch(line, CLASS_PATTERN.regex()))
@@ -85,7 +79,6 @@ public final class ScoreboardParser {
                 .orElse(null);
     }
 
-    /** Streak count from sidebar, or -1 if not found. */
     public static int parseStreak(Scoreboard scoreboard) {
         for (String line : getLines(scoreboard)) {
             Matcher m = STREAK_PATTERN.matcher(line);
@@ -98,37 +91,35 @@ public final class ScoreboardParser {
     }
 
     /**
-     * Logs all sidebar lines to the Minecraft log.
-     * Call this once per tick (or on demand) when debugMode is enabled.
-     * These logs are what you need to calibrate the patterns above.
+     * Logs all sidebar lines in [ZombieZ][DEBUG][Scoreboard] format.
+     * Called every ~5 s from ZombieZCompanionClient when debugMode is on.
+     *
+     * Output format (copy these lines and send them for pattern calibration):
+     *   [ZombieZ][DEBUG][Scoreboard] title="<objective name>"
+     *   [ZombieZ][DEBUG][Scoreboard] clean="<line text>" score=<value>
      */
     public static void debugPrintSidebar(Scoreboard scoreboard) {
         ScoreboardObjective sidebar = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.SIDEBAR);
         if (sidebar == null) {
-            ModLogger.debug("[ScoreboardParser] No sidebar objective active.");
+            DebugLogger.scoreboard("(no sidebar objective active)");
             return;
         }
 
-        String title = stripFormatting(sidebar.getDisplayName().getString());
-        ModLogger.debug("[ScoreboardParser] === Sidebar title: \"" + title + "\" ===");
+        String title = strip(sidebar.getDisplayName().getString());
+        DebugLogger.scoreboard("title=\"" + title + "\"");
 
-        getSortedEntries(scoreboard, sidebar).forEach(entry -> {
-            String raw   = entry.owner();
-            String clean = stripFormatting(raw);
-            ModLogger.debug("[ScoreboardParser]   score=" + entry.value()
-                    + "  raw=\"" + raw + "\""
-                    + "  clean=\"" + clean + "\"");
-        });
+        getSortedEntries(scoreboard, sidebar).forEach(entry ->
+            DebugLogger.scoreboard("clean=\"" + strip(entry.owner()) + "\" score=" + entry.value())
+        );
     }
 
-    // ---- Helpers --------------------------------------------------------
+    // ── Helpers ──────────────────────────────────────────────────────────
 
-    /** Returns all sidebar lines, cleaned of formatting codes, sorted by descending score. */
     private static List<String> getLines(Scoreboard scoreboard) {
         ScoreboardObjective sidebar = scoreboard.getObjectiveForSlot(ScoreboardDisplaySlot.SIDEBAR);
         if (sidebar == null) return List.of();
         return getSortedEntries(scoreboard, sidebar)
-                .map(e -> stripFormatting(e.owner()))
+                .map(e -> strip(e.owner()))
                 .filter(s -> !s.isBlank())
                 .collect(Collectors.toList());
     }
@@ -140,19 +131,12 @@ public final class ScoreboardParser {
                 .sorted((a, b) -> Integer.compare(b.value(), a.value()));
     }
 
-    /**
-     * Returns group(1) of the first match, or null.
-     * Group 1 is expected to contain the value after the label.
-     */
     private static @Nullable String tryMatch(String line, Pattern pattern) {
         Matcher m = pattern.matcher(line);
-        if (m.find() && m.groupCount() >= 1) return m.group(1).trim();
-        return null;
+        return (m.find() && m.groupCount() >= 1) ? m.group(1).trim() : null;
     }
 
-    private static String stripFormatting(String text) {
-        if (text == null) return "";
-        // Strip Minecraft § color/format codes
-        return text.replaceAll("§[0-9a-fk-orA-FK-OR]", "").trim();
+    static String strip(String text) {
+        return text == null ? "" : text.replaceAll("§[0-9a-fk-orA-FK-OR]", "").trim();
     }
 }

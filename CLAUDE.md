@@ -7,24 +7,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 **ZombieZ Companion** – Fabric client-side QoL mod for Minecraft 1.21.4, targeting the ZombieZ public server.
 The mod is **strictly read-only**: it reads visible client data (chat, scoreboard, bossbars) and displays overlays. It never automates gameplay, sends custom packets, or interacts on behalf of the player.
 
+---
+
 ## Build & Run
 
 ```bash
-# First time only: copy gradlew scripts from the Fabric example-mod template
-# or run (requires Gradle installed locally):
+# First time: get gradlew scripts from the Fabric example-mod template, or:
 gradle wrapper --gradle-version 8.10
 
-# Compile
-./gradlew build
-
-# Run Minecraft client in dev environment
-./gradlew runClient
-
-# Release JAR → build/libs/zombiez-companion-<version>.jar
-./gradlew build
+./gradlew build          # compile
+./gradlew runClient      # launch Minecraft in dev environment
 ```
 
-Requires Java 21. IDE: IntelliJ IDEA with the Minecraft Development plugin.
+Release JAR → `build/libs/zombiez-companion-<version>.jar`
+Requires Java 21. IDE: IntelliJ IDEA with Minecraft Development plugin.
 
 ## Dependency versions (`gradle.properties`)
 
@@ -36,7 +32,7 @@ Requires Java 21. IDE: IntelliJ IDEA with the Minecraft Development plugin.
 | `fabric_version` | `0.114.0+1.21.4` |
 | `modmenu_version` | `13.0.0` |
 
-Check current Fabric API version at [fabricmc.net/develop](https://fabricmc.net/develop/).
+---
 
 ## Architecture
 
@@ -46,68 +42,257 @@ Check current Fabric API version at [fabricmc.net/develop](https://fabricmc.net/
 com.keoz5.zombiezcompanion
 ├── ZombieZCompanionClient       ← entry-point; wires all Fabric events
 ├── config/
-│   ├── ModConfig                ← root; contains debugMode + one sub-config per module
-│   ├── EventAlertsConfig
-│   ├── SmartHudConfig
-│   ├── SessionTrackerConfig
-│   └── ConfigManager            ← Gson JSON load/save with null-safe fallback
+│   ├── ModConfig                ← root: debugMode + one sub-config per module
+│   ├── EventAlertsConfig / SmartHudConfig / SessionTrackerConfig
+│   └── ConfigManager            ← Gson JSON load/save, null-safe defaults
 ├── events/
 │   ├── ServerEventType          ← enum of all publishable event types
-│   ├── InternalEvent            ← typed wrapper (type + generic payload)
-│   └── InternalEventBus         ← simple synchronous pub/sub
+│   ├── InternalEvent            ← typed wrapper (type + payload)
+│   └── InternalEventBus         ← synchronous pub/sub
 ├── modules/
-│   ├── IModule                  ← lifecycle interface (onTick, onHudRender, onChatMessage…)
-│   ├── ModuleRegistry           ← holds all modules; broadcasts lifecycle calls
+│   ├── IModule                  ← lifecycle interface
+│   ├── ModuleRegistry           ← holds all modules, broadcasts events
 │   ├── alerts/EventAlertsModule
-│   ├── hud/SmartHudModule
+│   ├── hud/SmartHudModule, HudState, HudStateService, HudRenderer
 │   └── tracker/
 │       ├── SessionTrackerModule
-│       ├── SessionManager
-│       ├── SessionStats
-│       └── LootPattern          ← record(pattern, displayName, rare) for loot detection
-├── parser/                      ← stateless utils; return typed records, never raw strings
-│   ├── ChatMessageParser        ← regex EVENT_PATTERNS table → ParsedEventInfo
-│   ├── ScoreboardParser         ← reads sidebar → ParsedZoneInfo / ParsedClassInfo
-│   └── BossBarParser            ← reads bossbar map (via mixin) → ParsedMutationState
+│       ├── SessionManager / SessionStats
+│       └── LootPattern          ← record(pattern, displayName, rare)
+├── parser/                      ← stateless; return typed records
+│   ├── ChatMessageParser        ← EVENT_PATTERNS + KILL_PATTERN → ParsedEventInfo
+│   ├── ScoreboardParser         ← sidebar → ParsedZoneInfo / ParsedClassInfo
+│   └── BossBarParser            ← bossbar map (mixin) → ParsedMutationState
 ├── storage/
-│   ├── SessionRecord            ← serializable snapshot of a finished session
-│   └── SessionHistoryStorage    ← JSON array at config/zombiezcompanion/session_history.json
+│   ├── SessionRecord / SessionHistoryStorage
 ├── ui/
-│   ├── MainConfigScreen         ← lists modules + ON/OFF toggle + opens detail screen
-│   ├── EventAlertsConfigScreen
-│   ├── SmartHudConfigScreen     ← X/Y text fields for HUD position
-│   ├── SessionTrackerConfigScreen
-│   ├── ModMenuIntegration       ← loaded only when Mod Menu is installed
-│   └── widgets/ToggleButtonWidget
+│   ├── MainConfigScreen, EventAlertsConfigScreen
+│   ├── SmartHudConfigScreen, SessionTrackerConfigScreen
+│   ├── ModMenuIntegration, widgets/ToggleButtonWidget
 ├── mixin/
-│   └── BossBarHudAccessor       ← @Accessor exposing BossBarHud.bossBars (read-only)
+│   └── BossBarHudAccessor       ← @Accessor for BossBarHud.bossBars (read-only)
 └── util/
-    ├── ModLogger                ← thin SLF4J wrapper
-    ├── TextUtils                ← strip § codes, Text → plain String
-    └── TimeUtils                ← format ms durations and countdowns
+    ├── DebugLogger              ← categorized debug output [ZombieZ][DEBUG][Category]
+    ├── ModLogger                ← SLF4J wrapper
+    ├── TextUtils / TimeUtils
 ```
 
 ### Data flow
 
 ```
-Fabric event (chat / tick / HUD)
-        │
-        ▼
-ZombieZCompanionClient
-  ├─ moduleRegistry.onChatMessage()   → each module parses what it needs
-  ├─ dispatchParsedEvent()            → ChatMessageParser → InternalEventBus.publish()
-  └─ moduleRegistry.onHudRender()     → modules draw their overlays
+Fabric chat event
+   │
+   ├─ moduleRegistry.onChatMessage()   → each module handles its own parsing
+   ├─ dispatchParsedEvent()            → ChatMessageParser → InternalEventBus.publish()
+   └─ DebugLogger.chatRaw(raw)         → [ZombieZ][DEBUG][Chat:Raw]
 
-InternalEventBus (cross-module):
-  SessionTrackerModule ──publishes──▶ SESSION_STARTED ──▶ SmartHudModule (sessionStartMs)
-  EventAlertsModule    ──publishes──▶ GENERIC_SERVER_EVENT
+Fabric tick event
+   ├─ moduleRegistry.onTick()
+   └─ runPeriodicDebug() every 100 ticks
+         ├─ ScoreboardParser.debugPrintSidebar() → [ZombieZ][DEBUG][Scoreboard]
+         ├─ BossBarParser.debugPrintBossBars()   → [ZombieZ][DEBUG][Bossbar]
+         └─ HudState snapshot                    → [ZombieZ][DEBUG][HudState]
+
+InternalEventBus cross-module:
+   SessionTrackerModule ──▶ SESSION_STARTED ──▶ SmartHudModule (sessionStartMs)
 ```
 
 ### Config persistence
 
 - Main config: `.minecraft/config/zombiezcompanion/config.json`
 - Session history: `.minecraft/config/zombiezcompanion/session_history.json`
-- Modules directly mutate sub-config fields; `configManager.save()` serializes the whole tree.
+
+---
+
+## Debug mode
+
+Toggle with `/zzc debug` in-game or set `"debugMode": true` in `config.json`.
+
+### Log categories
+
+All lines share the prefix `[ZombieZ][DEBUG]` — filter in the log file with:
+
+| Filter string | What it shows |
+|---|---|
+| `[ZombieZ][DEBUG][Scoreboard]` | All sidebar lines, cleaned, every ~5 s |
+| `[ZombieZ][DEBUG][Bossbar]` | Active bossbars (name + %) every ~5 s |
+| `[ZombieZ][DEBUG][HudState]` | Parsed HUD values every ~5 s |
+| `[ZombieZ][DEBUG][Chat:Raw]` | Every chat message before parsing |
+| `[ZombieZ][DEBUG][Chat:Parsed]` | Messages that matched an event pattern |
+| `[ZombieZ][DEBUG][Kill]` | Messages that triggered kill detection |
+| `[ZombieZ][DEBUG][Loot]` | Messages that matched a loot pattern |
+| `[ZombieZ][DEBUG][Event]` | Events dispatched to the bus |
+
+Log file location: `.minecraft/logs/latest.log`
+
+---
+
+## Provisional patterns — status & calibration guide
+
+The sections below track every pattern that has not yet been verified against real ZombieZ data.
+
+### ✅ Finalized (no server data required)
+
+- Config system (load/save/defaults)
+- Module lifecycle (IModule, ModuleRegistry, InternalEventBus)
+- HUD rendering pipeline (HudState, HudRenderer, SmartHudModule)
+- Session lifecycle (SessionManager start/end/persist)
+- UI screens (MainConfig, detail screens, ToggleButtonWidget)
+- Keybind (Right Shift, rebindable)
+- Mod Menu integration
+- Debug logging infrastructure (DebugLogger, all categories)
+
+### ⚠️ Provisional — requires in-game calibration
+
+| Location | What | TODO tag |
+|---|---|---|
+| `ScoreboardParser.java` | `ZONE_PATTERN` regex | `TODO[DATA-NEEDED]` |
+| `ScoreboardParser.java` | `CLASS_PATTERN` regex | `TODO[DATA-NEEDED]` |
+| `ScoreboardParser.java` | `STREAK_PATTERN` regex | `TODO[DATA-NEEDED]` |
+| `ChatMessageParser.java` | `ZOMBIE_BOMB` pattern | `TODO[DATA-NEEDED]` |
+| `ChatMessageParser.java` | `MUTATION_READY` pattern | `TODO[DATA-NEEDED]` |
+| `ChatMessageParser.java` | `DEFUSED` pattern | `TODO[DATA-NEEDED]` |
+| `ChatMessageParser.java` | `SUCCESS` pattern | `TODO[DATA-NEEDED]` |
+| `ChatMessageParser.java` | `BONUS_ACTIVE` pattern | `TODO[DATA-NEEDED]` |
+| `ChatMessageParser.java` | `KILL_PATTERN` | `TODO[DATA-NEEDED]` |
+| `SessionTrackerModule.java` | `KILL_DIRECT_PATTERN` | `TODO[DATA-NEEDED]` |
+| `SessionTrackerModule.java` | `LOOT_PATTERNS` (all 8) | `TODO[DATA-NEEDED]` |
+| `BossBarParser.java` | mutation bossbar keyword | `TODO[DATA-NEEDED]` |
+| `BossBarParser.java` | "mutation ready" keyword | `TODO[DATA-NEEDED]` |
+
+Search for `TODO[DATA-NEEDED]` in the project to find all provisional locations.
+
+---
+
+## Procédure de collecte des données in-game
+
+### Prérequis
+
+1. Compiler le mod : `./gradlew build`
+2. Copier le JAR dans `.minecraft/mods/`
+3. Lancer Minecraft avec Fabric 0.16.9+ sur 1.21.4
+4. Rejoindre le serveur ZombieZ
+
+### Activation du mode debug
+
+En jeu : `/zzc debug` → message de confirmation en vert
+
+Ou manuellement dans `.minecraft/config/zombiezcompanion/config.json` :
+```json
+{
+  "debugMode": true,
+  ...
+}
+```
+
+### Collecte — Scoreboard
+
+**Objectif :** identifier le format exact des lignes de zone, classe, streak.
+
+1. Rejoindre le serveur
+2. Rester immobile ~10 secondes (le debug log toutes les 5 s)
+3. Ouvrir `.minecraft/logs/latest.log`
+4. Filtrer sur `[ZombieZ][DEBUG][Scoreboard]`
+5. Collecter les lignes dans **plusieurs contextes** :
+   - Zone spawn / hub
+   - Zone combat
+   - Pendant un event actif
+   - Avec un streak en cours
+
+**Format attendu dans le log :**
+```
+[ZombieZ][DEBUG][Scoreboard] title="<nom de l'objectif>"
+[ZombieZ][DEBUG][Scoreboard] clean="<texte de la ligne>" score=<valeur>
+```
+
+### Collecte — Kill
+
+**Objectif :** identifier le message exact affiché quand on tue.
+
+1. Tuer quelques zombies
+2. Filtrer sur `[ZombieZ][DEBUG][Chat:Raw]` dans le log
+3. Repérer les lignes qui apparaissent immédiatement après chaque kill
+
+**Format :**
+```
+[ZombieZ][DEBUG][Chat:Raw] message="<texte exact>"
+```
+
+### Collecte — Loot / Récompenses
+
+**Objectif :** identifier les messages de gains (monnaie, caisses, items).
+
+1. Obtenir une récompense (fin de round, caisse, drop)
+2. Filtrer sur `[ZombieZ][DEBUG][Chat:Raw]`
+3. Collecter toutes les lignes apparues lors du gain
+
+### Collecte — Bossbars
+
+**Objectif :** identifier le texte exact des bossbars de mutation et d'events.
+
+1. Laisser une mutation se charger ou provoquer un event avec bossbar
+2. Filtrer sur `[ZombieZ][DEBUG][Bossbar]`
+
+**Format :**
+```
+[ZombieZ][DEBUG][Bossbar] name="<texte exact>" percent=<xx%>
+```
+
+### Collecte — Events (Zombie Bombe, Mutation, etc.)
+
+**Objectif :** identifier les textes d'annonce d'événements (chat, title, system).
+
+1. Attendre ou déclencher un événement du serveur
+2. Filtrer sur `[ZombieZ][DEBUG][Chat:Raw]`
+3. Aussi noter les textes visibles dans le title/subtitle si applicable
+
+---
+
+## Template de retour — à remplir et m'envoyer
+
+Copier ce bloc, remplir les sections, et m'envoyer le tout pour que je mette à jour les patterns.
+
+```
+## Rapport de collecte ZombieZ
+
+### Scoreboard — lignes clean= (plusieurs contextes si possible)
+- clean="" score=
+- clean="" score=
+- ...
+
+### Kill — messages bruts
+- message=""
+- ...
+
+### Loot / Récompenses — messages bruts
+- message=""
+- ...
+
+### Bossbars
+- name="" percent=
+- ...
+
+### Events — messages bruts (chat ou title)
+- message=""
+- ...
+
+### Notes complémentaires
+(tout ce qui semble utile : format inhabituel, couleurs spéciales, etc.)
+```
+
+---
+
+## Commandes
+
+| Commande | Effet |
+|---|---|
+| `/zzc menu` | Ouvre l'écran de configuration |
+| `/zzc debug` | Active/désactive le debug mode (sauvegardé) |
+| `/zzc status` | Affiche l'état de tous les modules |
+
+## Keybind
+
+Défaut : **Right Shift** (`GLFW_KEY_RIGHT_SHIFT`). Rebindable dans Options → Controls → ZombieZ Companion.
+Pour changer le défaut : modifier `GLFW.GLFW_KEY_RIGHT_SHIFT` dans `ZombieZCompanionClient.registerKeybind()`.
 
 ---
 
@@ -115,103 +300,43 @@ InternalEventBus (cross-module):
 
 | Area | API | Note |
 |---|---|---|
-| HUD rendering | `HudRenderCallback.EVENT` | Signature: `(DrawContext, RenderTickCounter)` — call `tickCounter.getTickDelta(true)` for partial tick. Valid for Fabric API ≥ 0.100 (our target: 0.114.0+1.21.4). |
+| HUD rendering | `HudRenderCallback.EVENT` | Signature: `(DrawContext, RenderTickCounter)` — `tickCounter.getTickDelta(true)`. Valid for Fabric API ≥ 0.100 |
 | Drawing | `DrawContext.drawTextWithShadow()` / `.fill()` | Colors are ARGB ints |
-| Scoreboard | `Scoreboard.getScoreboardEntries(objective)` | Returns `Collection<ScoreboardEntry>`; each entry: `.owner()` (raw string) `.value()` (score int) |
-| BossBar | `BossBarHudAccessor` mixin | Exposes private `bossBars` field; declared in `zombiezcompanion.mixins.json` |
-| Client command | `ClientCommandRegistrationCallback` + `ClientCommandManager` | Package: `net.fabricmc.fabric.api.client.command.v2` |
-| Keybind | `KeyBindingHelper.registerKeyBinding()` | Package: `net.fabricmc.fabric.api.client.keybinding.v1` |
+| Scoreboard | `Scoreboard.getScoreboardEntries(objective)` | Returns `Collection<ScoreboardEntry>`; `.owner()` = raw string, `.value()` = score |
+| BossBar | `BossBarHudAccessor` mixin | Exposes private `bossBars`; declared in `zombiezcompanion.mixins.json` |
+| Client command | `ClientCommandRegistrationCallback` | Package: `net.fabricmc.fabric.api.client.command.v2` |
+| Keybind | `KeyBindingHelper` | Package: `net.fabricmc.fabric.api.client.keybinding.v1` |
 
 ---
 
-## Debug mode
+## Open issues (create with `create-issues.ps1`)
 
-Set `debugMode: true` in `config/zombiezcompanion/config.json`, or toggle with `/zzc debug` in-game.
+Install `gh` CLI → `gh auth login` → `.\create-issues.ps1`
 
-When enabled:
-- All raw chat messages are logged: `[SessionTracker] Chat: "..."`
-- Scoreboard sidebar is logged every ~5 s: `[ScoreboardParser] === Sidebar: "..." ===` with each line's `raw=` and `clean=` values
-- Detected events are logged: `[EventBus] Dispatching TYPE – "label" from: "..."`
-- Detected loot is logged: `[SessionTracker] Loot [RARE|normal] → "label" from: "..."`
-
-**This is the primary tool to calibrate patterns against real ZombieZ data.**
-
----
-
-## Provisional patterns — what to calibrate in-game
-
-The following patterns are guesses and must be verified on the real server:
-
-### ScoreboardParser (`ScoreboardParser.java`)
-
-```java
-ZONE_PATTERN   → "(?i)^(?:zone|secteur|area)\\s*[:\\-]?\\s*(.+)$"
-CLASS_PATTERN  → "(?i)^(?:classe?|class)\\s*[:\\-]?\\s*(.+)$"
-STREAK_PATTERN → "(?i)(?:streak|s[eé]rie|kill.?streak)\\s*[:\\-]?\\s*(\\d+)"
-```
-
-**How to calibrate:** enable debugMode → join ZombieZ → look for `[ScoreboardParser]` entries in the log → copy the `clean=` values → update the patterns.
-
-### ChatMessageParser (`ChatMessageParser.java`)
-
-```java
-ZOMBIE_BOMB   → "(?i)zombie.?bomb|bombe.?zombie"
-MUTATION_READY→ "(?i)mutation.{0,15}pr[eê]te?|ready.{0,10}mutation"
-DEFUSED       → "(?i)d[eé]samor[cç][eé]e?"
-SUCCESS       → "(?i)succ[eè]s|mission.{0,10}r[eé]ussie?"
-BONUS_ACTIVE  → "(?i)bonus.{0,20}activ[eé]|[eé]v[eé]nement.{0,10}sp[eé]cial"
-KILL          → see KILL_PATTERN in same file
-```
-
-### SessionTrackerModule (`SessionTrackerModule.java`)
-
-```java
-KILL_DIRECT_PATTERN → "tu as (tué|éliminé)|\\+\\s*1\\s*kill|..."
-LOOT_PATTERNS       → 8 provisional entries (currency, crates, rare drops, XP)
-```
-
----
-
-## Commands
-
-| Command | Effect |
-|---|---|
-| `/zzc menu` | Opens the config screen |
-| `/zzc debug` | Toggles debugMode on/off (saved to config) |
-| `/zzc status` | Prints all module states to chat + log |
-
-## Keybind
-
-Default: **Right Shift** (`GLFW_KEY_RIGHT_SHIFT`). Rebindable in Options → Controls → ZombieZ Companion.
-To change the default, edit `ZombieZCompanionClient.registerKeybind()`.
+| # | Title | Priority |
+|---|---|---|
+| 1 | Calibrate ScoreboardParser patterns | needs-real-data |
+| 2 | Calibrate kill/loot/event patterns | needs-real-data |
+| 3 | Calibrate BossBarParser | needs-real-data |
+| 4 | Verify HudRenderCallback builds | build |
+| 5 | Right Shift keybind conflict | ux |
+| **6** | **Collect real ZombieZ in-game data** | **priority** |
+| 7 | Add in-game debug overlay | enhancement |
 
 ---
 
 ## Adding a new module
 
-1. `config/MyFeatureConfig.java` — public fields with defaults
+1. `config/MyFeatureConfig.java` with public fields + defaults
 2. Add `public MyFeatureConfig myFeature = new MyFeatureConfig();` to `ModConfig`
 3. `modules/myfeature/MyFeatureModule.java` implementing `IModule`
 4. Register in `ZombieZCompanionClient.onInitializeClient()`
-5. Add a detail screen in `ui/` and wire it in `MainConfigScreen.buildDetailScreen()`
+5. Add detail screen in `ui/` and wire in `MainConfigScreen.buildDetailScreen()`
 
 ## Adding a new detectable event
 
-Edit `EVENT_PATTERNS` in `ChatMessageParser.java` — each entry is a `EventPattern(regex, ServerEventType, displayName)` record. Add the new enum value to `ServerEventType` first.
-
----
-
-## Open issues (create with `create-issues.ps1` after installing `gh` CLI)
-
-| # | Title | Label |
-|---|---|---|
-| 1 | Calibrate ScoreboardParser patterns for real ZombieZ data | parser, needs-real-data |
-| 2 | Calibrate loot/kill detection patterns for real ZombieZ messages | parser, needs-real-data |
-| 3 | Verify HudRenderCallback API with installed Fabric version | build, hud, compatibility |
-| 4 | Default menu key (Right Shift) may conflict with sprint | keybind, ux |
-| 5 | Add in-game debug overlay showing raw scoreboard + HUD state | enhancement, debug, hud |
-
-Run `.\create-issues.ps1` (requires `gh` CLI: https://cli.github.com/) to push all issues to GitHub.
+1. Add value to `ServerEventType`
+2. Add `EventPattern(regex, type, displayName)` to `EVENT_PATTERNS` in `ChatMessageParser`
 
 ---
 
