@@ -29,7 +29,10 @@ public final class Commands {
         ClientCommandRegistrationCallback.EVENT.register((dispatcher, access) ->
                 dispatcher.register(ClientCommandManager.literal("zzc")
                         .then(ClientCommandManager.literal("menu").executes(ctx -> {
-                            MinecraftClient.getInstance().setScreen(new ConfigScreen(null, configManager, moduleManager));
+                            // Defer: chat screen is still closing while this executes; setting
+                            // a screen synchronously gets overwritten by the chat closure.
+                            MinecraftClient client = MinecraftClient.getInstance();
+                            client.execute(() -> client.setScreen(new ConfigScreen(null, configManager, moduleManager)));
                             return 1;
                         }))
                         .then(ClientCommandManager.literal("debug").executes(ctx -> {
