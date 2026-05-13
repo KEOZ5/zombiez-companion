@@ -19,28 +19,13 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Generate Gradle wrapper JAR
-        run: |
-          # Use system Gradle in a temp empty project to generate the wrapper JAR
-          SYS_GRADLE=$(which gradle 2>/dev/null || echo "")
-          if [ -z "$SYS_GRADLE" ]; then
-            echo "No system Gradle found – downloading"
-            wget -q https://services.gradle.org/distributions/gradle-8.10-bin.zip -O /tmp/gradle.zip
-            unzip -q /tmp/gradle.zip -d /opt
-            SYS_GRADLE=/opt/gradle-8.10/bin/gradle
-          fi
-          echo "Using Gradle: $SYS_GRADLE"
-          $SYS_GRADLE --version
-          # Generate wrapper in an isolated empty project
-          TMPPROJ=$(mktemp -d)
-          echo "" > "$TMPPROJ/settings.gradle"
-          (cd "$TMPPROJ" && $SYS_GRADLE wrapper --gradle-version=8.10 -q)
-          cp "$TMPPROJ/gradle/wrapper/gradle-wrapper.jar" gradle/wrapper/gradle-wrapper.jar
-          chmod +x gradlew
-          echo "Wrapper JAR size: $(wc -c < gradle/wrapper/gradle-wrapper.jar) bytes"
+      - name: Set up Gradle 8.10
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.10'
 
       - name: Build
-        run: ./gradlew build --stacktrace 2>&1 | tee /tmp/build.log; exit ${PIPESTATUS[0]}
+        run: gradle build --stacktrace 2>&1 | tee /tmp/build.log; exit ${PIPESTATUS[0]}
 
       - name: Show error log
         if: failure()
