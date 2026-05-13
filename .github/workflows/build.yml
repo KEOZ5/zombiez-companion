@@ -19,19 +19,15 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Install Gradle 8.10
+      - name: Build with Gradle
         run: |
+          # Download and install Gradle 8.10
           wget -q https://services.gradle.org/distributions/gradle-8.10-bin.zip -O /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /opt
-          echo "/opt/gradle-8.10/bin" >> $GITHUB_PATH
-
-      - name: Show versions
-        run: |
+          export PATH="/opt/gradle-8.10/bin:$PATH"
           java -version
           gradle --version
-
-      - name: Build
-        run: gradle build --stacktrace
+          gradle build --stacktrace
 
       - name: Upload JAR
         if: success()
