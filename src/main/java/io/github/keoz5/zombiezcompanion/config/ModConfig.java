@@ -24,4 +24,10 @@ public final class ModConfig {
 
     /** Per-module enable flag, keyed by {@code Module.id()}. */
     public Map<String, Boolean> moduleEnabled = new LinkedHashMap<>();
+
+    // ── Per-module config blocks ─────────────────────────────────────────
+    // Pattern: one typed sub-POJO per module, named after the module id.
+    // Always default-construct so older config files load with safe values.
+
+    public BrightnessConfig brightness = new BrightnessConfig();
 }

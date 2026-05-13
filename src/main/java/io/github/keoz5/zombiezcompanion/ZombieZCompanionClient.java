@@ -7,6 +7,7 @@ import io.github.keoz5.zombiezcompanion.core.ModuleManager;
 import io.github.keoz5.zombiezcompanion.event.EventBus;
 import io.github.keoz5.zombiezcompanion.keybind.Keybinds;
 import io.github.keoz5.zombiezcompanion.log.Log;
+import io.github.keoz5.zombiezcompanion.modules.brightness.BrightnessModule;
 import io.github.keoz5.zombiezcompanion.ui.ConfigScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -71,7 +72,7 @@ public final class ZombieZCompanionClient implements ClientModInitializer {
      * persisted in {@code config.json} under {@code moduleEnabled.<id>}.
      */
     private static void registerModules(ModuleManager mm) {
-        // no modules in the base skeleton
+        mm.register(new BrightnessModule());
     }
 
     private void registerFabricHooks() {
