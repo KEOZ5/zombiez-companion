@@ -13,9 +13,10 @@ import java.util.Locale;
 /**
  * Options page for {@link BrightnessModule}: a single brightness slider.
  *
- * <p>Slider edits are applied live (the user sees the effect immediately when
- * the module is enabled) but only persisted to disk when the screen closes —
- * mirroring the rest of the UI to avoid hundreds of fsync calls during a drag.
+ * <p>Slider edits apply live so the user can dial in the right value while
+ * watching the world dim or brighten in real time (provided the module is
+ * enabled). The persisted config is saved on screen close — mirroring the
+ * rest of the UI to avoid hundreds of fsync calls during a drag.
  */
 public final class BrightnessOptionsScreen extends ModuleOptionsScreen {
 
@@ -31,14 +32,18 @@ public final class BrightnessOptionsScreen extends ModuleOptionsScreen {
         int sliderW = Math.min(360, (panelX2 - panelX1) - 4 * Theme.PADDING_LG);
         int sliderH = 22;
         int sliderX = (panelX1 + panelX2) / 2 - sliderW / 2;
-        int sliderY = contentY1 + 60;
+        int sliderY = contentY1 + 64;
 
         addDrawableChild(new StyledSlider(
                 sliderX, sliderY, sliderW, sliderH,
                 moduleRef.config().gamma,
                 BrightnessModule.GAMMA_MIN, BrightnessModule.GAMMA_MAX,
                 moduleRef::setGamma,
-                v -> Text.literal(String.format(Locale.ROOT, "Brightness: %.1f", v))));
+                v -> Text.literal("Brightness: " + percent(v))));
+    }
+
+    private static String percent(double v) {
+        return String.format(Locale.ROOT, "%d%%", Math.round(v * 100));
     }
 
     @Override
@@ -47,13 +52,13 @@ public final class BrightnessOptionsScreen extends ModuleOptionsScreen {
 
         int cx = (panelX1 + panelX2) / 2;
         ctx.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("Override the in-game gamma."),
-                cx, contentY1 + 20, Theme.TEXT_PRIMARY);
+                Text.literal("Live override of the vanilla gamma slider."),
+                cx, contentY1 + 22, Theme.TEXT_PRIMARY);
         ctx.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("§81.0 = vanilla bright preset · 15.0 ≈ full bright"),
-                cx, contentY1 + 34, Theme.TEXT_MUTED);
+                Text.literal("§80% = Moody  ·  50% = Default  ·  100% = Bright"),
+                cx, contentY1 + 36, Theme.TEXT_MUTED);
         ctx.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("§8Active only while the module is enabled."),
-                cx, contentY1 + 100, Theme.TEXT_MUTED);
+                Text.literal("§8Original value is restored when you disable the module."),
+                cx, contentY1 + 104, Theme.TEXT_MUTED);
     }
 }

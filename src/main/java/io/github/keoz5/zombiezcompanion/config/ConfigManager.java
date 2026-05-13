@@ -57,7 +57,7 @@ public final class ConfigManager {
             if (parsed == null) {
                 throw new JsonSyntaxException("Empty or null config");
             }
-            if (parsed.moduleEnabled == null) parsed.moduleEnabled = new java.util.LinkedHashMap<>();
+            fillDefaults(parsed);
             Log.debug(LogCategory.CONFIG, "loaded schemaVersion=" + parsed.schemaVersion);
             return parsed;
         } catch (IOException | JsonSyntaxException e) {
@@ -71,6 +71,18 @@ public final class ConfigManager {
 
     public void save() {
         saveInternal(config);
+    }
+
+    /**
+     * Fill in any missing sub-config block with its default. Gson preserves
+     * field initializers when the JSON key is absent, but an older config
+     * file that explicitly set a field to {@code null} would otherwise
+     * resurface as an NPE inside a module. Defensive — every per-module sub-
+     * config is listed here so new modules can be added safely.
+     */
+    private static void fillDefaults(ModConfig cfg) {
+        if (cfg.moduleEnabled == null) cfg.moduleEnabled = new java.util.LinkedHashMap<>();
+        if (cfg.brightness == null)    cfg.brightness = new BrightnessConfig();
     }
 
     private void saveInternal(ModConfig cfg) {
