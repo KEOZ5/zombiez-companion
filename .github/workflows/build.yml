@@ -21,13 +21,23 @@ jobs:
 
       - name: Build with Gradle
         run: |
-          # Download and install Gradle 8.10
           wget -q https://services.gradle.org/distributions/gradle-8.10-bin.zip -O /tmp/gradle.zip
           unzip -q /tmp/gradle.zip -d /opt
           export PATH="/opt/gradle-8.10/bin:$PATH"
-          java -version
-          gradle --version
-          gradle build --stacktrace
+          java -version 2>&1
+          gradle --version 2>&1
+          gradle build --stacktrace 2>&1 | tee /tmp/build.log
+          BUILD_EXIT=${PIPESTATUS[0]}
+          exit $BUILD_EXIT
+
+      - name: Show build log on failure
+        if: failure()
+        run: |
+          echo "## Build Output (last 150 lines)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -150 /tmp/build.log >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          tail -150 /tmp/build.log
 
       - name: Upload JAR
         if: success()
