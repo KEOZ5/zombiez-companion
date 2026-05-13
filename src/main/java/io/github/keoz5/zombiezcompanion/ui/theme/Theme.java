@@ -15,9 +15,10 @@ public final class Theme {
     private Theme() {}
 
     // ── Backgrounds ──────────────────────────────────────────────────────
-    public static final int BG_DIM          = 0xC8000000;  // overlay behind the screen
-    public static final int BG_HEADER       = 0xFF11140F;
+    public static final int BG_DIM          = 0xC8000000;  // overlay behind the panel
     public static final int BG_PANEL        = 0xFF161A14;
+    public static final int BG_BAND         = 0xFF11140F;  // title / footer bands
+    public static final int BG_CONTENT      = 0xFF181D15;  // central card area
     public static final int BG_CARD         = 0xFF1F2419;
     public static final int BG_CARD_HOVER   = 0xFF272E20;
     public static final int BG_BTN          = 0xFF2A311F;
@@ -30,6 +31,7 @@ public final class Theme {
 
     // ── Borders / dividers ──────────────────────────────────────────────
     public static final int BORDER          = 0xFF2C3322;
+    public static final int BORDER_STRONG   = 0xFF3A4530;
     public static final int BORDER_FOCUS    = 0xFF6FA94A;
 
     // ── Text ─────────────────────────────────────────────────────────────
@@ -44,20 +46,30 @@ public final class Theme {
     public static final int STATE_OFF_BG    = 0xFF7A2C2C;
     public static final int STATE_OFF_BG_H  = 0xFF913636;
 
-    // ── Layout ───────────────────────────────────────────────────────────
-    public static final int PADDING_LG = 16;
+    // ── Layout: paddings ────────────────────────────────────────────────
+    public static final int PADDING_LG = 14;
     public static final int PADDING_MD = 10;
     public static final int PADDING_SM = 6;
 
-    public static final int CARD_WIDTH  = 188;
-    public static final int CARD_HEIGHT = 96;
-    public static final int CARD_GAP    = 12;
+    // ── Layout: panel chrome ────────────────────────────────────────────
+    /** Floor for the visible margin between the panel and the screen edge. */
+    public static final int PANEL_MARGIN_MIN = 24;
+    /** Hard cap on panel width — beyond this we keep the panel centered. */
+    public static final int PANEL_MAX_WIDTH  = 1000;
+    /** Hard cap on panel height. */
+    public static final int PANEL_MAX_HEIGHT = 620;
 
-    public static final int TAB_HEIGHT = 22;
-    public static final int TAB_GAP    = 6;
+    public static final int TITLE_BAND_H    = 30;
+    public static final int TOOLBAR_BAND_H  = 32;
+    public static final int FOOTER_BAND_H   = 32;
 
+    // ── Layout: cards ───────────────────────────────────────────────────
+    public static final int CARD_WIDTH  = 184;
+    public static final int CARD_HEIGHT = 82;
+    public static final int CARD_GAP    = 10;
+
+    // ── Layout: tabs / search ───────────────────────────────────────────
+    public static final int TAB_HEIGHT   = 20;
+    public static final int TAB_GAP      = 4;
     public static final int SEARCH_WIDTH = 150;
-
-    public static final int HEADER_HEIGHT = 78;
-    public static final int FOOTER_HEIGHT = 40;
 }

@@ -8,7 +8,6 @@ import io.github.keoz5.zombiezcompanion.core.ModuleManager;
 import io.github.keoz5.zombiezcompanion.ui.theme.Theme;
 import io.github.keoz5.zombiezcompanion.ui.widget.CategoryTabButton;
 import io.github.keoz5.zombiezcompanion.ui.widget.StyledButton;
-import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
@@ -23,25 +22,25 @@ import java.util.Objects;
 /**
  * Main configuration screen — a single, reusable surface for every module.
  *
- * <p>Layout (top → bottom):
+ * <p>Renders as an inset panel centered on the screen with four bands:
  * <ol>
- *     <li><b>Header band</b> — mod title + version</li>
- *     <li><b>Tab bar</b> — {@code ALL} plus one tab per {@link ModuleCategory}
- *         present among registered modules, with a right-aligned search field</li>
- *     <li><b>Card grid</b> — responsive column count (1–4) based on screen width.
- *         Each module is rendered as a card with title, category, an OPTIONS
- *         button (greyed if {@link Module#hasOptions()} is false) and a
- *         coloured ENABLED/DISABLED toggle</li>
+ *     <li><b>Title band</b> — mod name + version</li>
+ *     <li><b>Toolbar band</b> — category tabs (left), module count + search (right)</li>
+ *     <li><b>Content band</b> — responsive 1–4 column card grid</li>
  *     <li><b>Footer band</b> — global debug toggle + Done</li>
  * </ol>
  *
+ * <p>The panel rect is clamped between {@link Theme#PANEL_MARGIN_MIN} and
+ * {@link Theme#PANEL_MAX_WIDTH}/{@link Theme#PANEL_MAX_HEIGHT} so the UI stays
+ * compact on 4K monitors and still leaves breathing room on small windows.
+ *
  * <p>The screen owns no module state; every change is routed through
  * {@link ModuleManager} so config persistence and lifecycle hooks stay
- * authoritative. The search and category filters are local UI state only.
+ * authoritative. Search and category filters are local UI state only.
  *
- * <p>Scrolling is not yet implemented (tracked separately). With overflow the
- * extra cards simply render beyond the panel; safe because the panel
- * background fills its own region first.
+ * <p>Scrolling is not yet implemented (tracked as a separate issue). With
+ * overflow the extra cards simply spill below the content band; the panel
+ * chrome stays correct because it's rendered after the cards.
  */
 public final class ConfigScreen extends Screen {
 
@@ -53,8 +52,13 @@ public final class ConfigScreen extends Screen {
     private String searchText = "";
     private ModuleCategory selectedCategory = null; // null = ALL
 
-    private int contentTop;
-    private int contentBottom;
+    // Panel rect + bands, computed every init()
+    private int panelX1, panelY1, panelX2, panelY2;
+    private int titleY1, titleY2;
+    private int toolbarY1, toolbarY2;
+    private int contentY1, contentY2;
+    private int footerY1, footerY2;
+
     private int gridLeft;
     private int columns;
 
@@ -71,11 +75,12 @@ public final class ConfigScreen extends Screen {
     protected void init() {
         cards.clear();
 
-        int barY = Theme.PADDING_LG + 30;
+        computePanelRect();
 
-        // ── Tab bar ───────────────────────────────────────────────────────
-        int tabsX = Theme.PADDING_LG;
-        tabsX += addTab("ALL", null, tabsX, barY) + Theme.TAB_GAP;
+        // ── Toolbar widgets ──────────────────────────────────────────────
+        int tabsX = panelX1 + Theme.PADDING_MD;
+        int tabsY = toolbarY1 + (Theme.TOOLBAR_BAND_H - Theme.TAB_HEIGHT) / 2;
+        tabsX += addTab("ALL", null, tabsX, tabsY) + Theme.TAB_GAP;
 
         List<ModuleCategory> usedCategories = moduleManager.modules().stream()
                 .map(Module::category)
@@ -83,13 +88,14 @@ public final class ConfigScreen extends Screen {
                 .sorted(Comparator.comparing(Enum::ordinal))
                 .toList();
         for (ModuleCategory c : usedCategories) {
-            tabsX += addTab(c.displayName().toUpperCase(Locale.ROOT), c, tabsX, barY) + Theme.TAB_GAP;
+            tabsX += addTab(c.displayName().toUpperCase(Locale.ROOT), c, tabsX, tabsY)
+                    + Theme.TAB_GAP;
         }
 
-        // ── Search field (right-aligned) ──────────────────────────────────
-        int searchX = width - Theme.PADDING_LG - Theme.SEARCH_WIDTH;
+        int searchX = panelX2 - Theme.PADDING_MD - Theme.SEARCH_WIDTH;
+        int searchY = toolbarY1 + (Theme.TOOLBAR_BAND_H - Theme.TAB_HEIGHT) / 2;
         searchField = new TextFieldWidget(
-                textRenderer, searchX, barY, Theme.SEARCH_WIDTH, Theme.TAB_HEIGHT,
+                textRenderer, searchX, searchY, Theme.SEARCH_WIDTH, Theme.TAB_HEIGHT,
                 Text.literal(""));
         searchField.setMaxLength(64);
         searchField.setPlaceholder(Text.literal("§7Search modules..."));
@@ -100,22 +106,20 @@ public final class ConfigScreen extends Screen {
         });
         addDrawableChild(searchField);
 
-        // ── Content area ──────────────────────────────────────────────────
-        contentTop = Theme.HEADER_HEIGHT + Theme.PADDING_LG;
-        contentBottom = height - Theme.FOOTER_HEIGHT - Theme.PADDING_SM;
-
-        int usableWidth = width - 2 * Theme.PADDING_LG;
+        // ── Content grid layout (responsive) ─────────────────────────────
+        int usableWidth = (panelX2 - panelX1) - 2 * Theme.PADDING_MD;
         columns = Math.max(1,
                 Math.min(4, (usableWidth + Theme.CARD_GAP) / (Theme.CARD_WIDTH + Theme.CARD_GAP)));
         int totalGridW = columns * Theme.CARD_WIDTH + (columns - 1) * Theme.CARD_GAP;
-        gridLeft = (width - totalGridW) / 2;
+        gridLeft = panelX1 + ((panelX2 - panelX1) - totalGridW) / 2;
 
         layoutCards();
 
-        // ── Footer ────────────────────────────────────────────────────────
-        int footerY = height - Theme.FOOTER_HEIGHT + Theme.PADDING_SM;
+        // ── Footer widgets ───────────────────────────────────────────────
+        int btnH = 20;
+        int btnY = footerY1 + (Theme.FOOTER_BAND_H - btnH) / 2;
         addDrawableChild(new StyledButton(
-                Theme.PADDING_LG, footerY, 110, 22,
+                panelX1 + Theme.PADDING_MD, btnY, 100, btnH,
                 debugLabel(),
                 btn -> {
                     boolean next = !configManager.get().debugMode;
@@ -126,10 +130,30 @@ public final class ConfigScreen extends Screen {
                 Theme.BG_BTN, Theme.BG_BTN_HOVER, Theme.TEXT_PRIMARY));
 
         addDrawableChild(new StyledButton(
-                width - Theme.PADDING_LG - 110, footerY, 110, 22,
+                panelX2 - Theme.PADDING_MD - 100, btnY, 100, btnH,
                 Text.translatable("gui.done"),
                 btn -> close(),
                 Theme.BG_BTN, Theme.BG_BTN_HOVER, Theme.TEXT_PRIMARY));
+    }
+
+    private void computePanelRect() {
+        int panelW = Math.min(Theme.PANEL_MAX_WIDTH, width - 2 * Theme.PANEL_MARGIN_MIN);
+        int panelH = Math.min(Theme.PANEL_MAX_HEIGHT, height - 2 * Theme.PANEL_MARGIN_MIN);
+        panelW = Math.max(panelW, 480);  // keep readable at very small windows
+        panelH = Math.max(panelH, 280);
+        panelX1 = (width - panelW) / 2;
+        panelY1 = (height - panelH) / 2;
+        panelX2 = panelX1 + panelW;
+        panelY2 = panelY1 + panelH;
+
+        titleY1   = panelY1;
+        titleY2   = titleY1 + Theme.TITLE_BAND_H;
+        toolbarY1 = titleY2;
+        toolbarY2 = toolbarY1 + Theme.TOOLBAR_BAND_H;
+        footerY2  = panelY2;
+        footerY1  = footerY2 - Theme.FOOTER_BAND_H;
+        contentY1 = toolbarY2;
+        contentY2 = footerY1;
     }
 
     private Text debugLabel() {
@@ -138,7 +162,7 @@ public final class ConfigScreen extends Screen {
 
     /** Returns the rendered tab width. */
     private int addTab(String label, ModuleCategory cat, int x, int y) {
-        int w = Math.max(48, textRenderer.getWidth(label) + 16);
+        int w = Math.max(40, textRenderer.getWidth(label) + 14);
         addDrawableChild(new CategoryTabButton(
                 x, y, w, Theme.TAB_HEIGHT,
                 Text.literal(label),
@@ -160,11 +184,12 @@ public final class ConfigScreen extends Screen {
         cards.clear();
 
         List<Module> filtered = filterModules();
+        int gridTop = contentY1 + Theme.PADDING_MD;
         for (int i = 0; i < filtered.size(); i++) {
             int row = i / columns;
             int col = i % columns;
             int x = gridLeft + col * (Theme.CARD_WIDTH + Theme.CARD_GAP);
-            int y = contentTop + row * (Theme.CARD_HEIGHT + Theme.CARD_GAP);
+            int y = gridTop + row * (Theme.CARD_HEIGHT + Theme.CARD_GAP);
             cards.add(buildCard(filtered.get(i), x, y));
         }
     }
@@ -183,11 +208,11 @@ public final class ConfigScreen extends Screen {
     private CardLayout buildCard(Module m, int x, int y) {
         int btnW = Theme.CARD_WIDTH - 12;
         int btnX = x + 6;
-        int optionsY = y + Theme.CARD_HEIGHT - 44;
-        int toggleY  = y + Theme.CARD_HEIGHT - 22;
+        int optionsY = y + Theme.CARD_HEIGHT - 38;
+        int toggleY  = y + Theme.CARD_HEIGHT - 18;
 
         StyledButton options = new StyledButton(
-                btnX, optionsY, btnW, 18,
+                btnX, optionsY, btnW, 16,
                 Text.literal("OPTIONS"),
                 btn -> openOptions(m),
                 Theme.BG_BTN, Theme.BG_BTN_HOVER, Theme.TEXT_PRIMARY);
@@ -196,7 +221,7 @@ public final class ConfigScreen extends Screen {
 
         boolean enabled = moduleManager.isEnabled(m.id());
         StyledButton toggle = new StyledButton(
-                btnX, toggleY, btnW, 18,
+                btnX, toggleY, btnW, 16,
                 toggleLabel(enabled),
                 btn -> toggleModule(m, btn),
                 enabled ? Theme.STATE_ON_BG : Theme.STATE_OFF_BG,
@@ -231,34 +256,70 @@ public final class ConfigScreen extends Screen {
 
     @Override
     public void render(DrawContext ctx, int mouseX, int mouseY, float delta) {
-        // Backdrop
         ctx.fill(0, 0, width, height, Theme.BG_DIM);
-        ctx.fill(0, 0, width, Theme.HEADER_HEIGHT, Theme.BG_HEADER);
-        ctx.fill(0, Theme.HEADER_HEIGHT, width, height - Theme.FOOTER_HEIGHT, Theme.BG_PANEL);
-        ctx.fill(0, height - Theme.FOOTER_HEIGHT, width, height, Theme.BG_HEADER);
-        ctx.fill(0, Theme.HEADER_HEIGHT - 1, width, Theme.HEADER_HEIGHT, Theme.BORDER);
-        ctx.fill(0, height - Theme.FOOTER_HEIGHT, width, height - Theme.FOOTER_HEIGHT + 1, Theme.BORDER);
 
-        // Title + version
-        ctx.drawCenteredTextWithShadow(textRenderer,
-                Text.literal(ModInfo.MOD_NAME),
-                width / 2, Theme.PADDING_LG, Theme.TEXT_PRIMARY);
-        ctx.drawCenteredTextWithShadow(textRenderer,
-                Text.literal("§7v" + currentVersion()),
-                width / 2, Theme.PADDING_LG + 12, Theme.TEXT_MUTED);
+        // Panel body
+        ctx.fill(panelX1, panelY1, panelX2, panelY2, Theme.BG_PANEL);
 
-        // Card backgrounds (drawn before widgets so buttons render on top)
+        // Title band
+        ctx.fill(panelX1, titleY1, panelX2, titleY2, Theme.BG_BAND);
+
+        // Content band
+        ctx.fill(panelX1, contentY1, panelX2, contentY2, Theme.BG_CONTENT);
+
+        // Footer band
+        ctx.fill(panelX1, footerY1, panelX2, footerY2, Theme.BG_BAND);
+
+        // Inner dividers
+        ctx.fill(panelX1, titleY2 - 1,   panelX2, titleY2,   Theme.BORDER);
+        ctx.fill(panelX1, toolbarY2 - 1, panelX2, toolbarY2, Theme.BORDER);
+        ctx.fill(panelX1, footerY1,      panelX2, footerY1 + 1, Theme.BORDER);
+
+        // Outer border
+        ctx.drawBorder(panelX1, panelY1, panelX2 - panelX1, panelY2 - panelY1, Theme.BORDER_STRONG);
+
+        // Title: name + version inline
+        int titleY = titleY1 + (Theme.TITLE_BAND_H - 9) / 2;
+        int titleX = panelX1 + Theme.PADDING_MD;
+        ctx.drawText(textRenderer, Text.literal(ModInfo.MOD_NAME),
+                titleX, titleY, Theme.TEXT_PRIMARY, true);
+        int nameW = textRenderer.getWidth(ModInfo.MOD_NAME);
+        ctx.drawText(textRenderer, Text.literal("v" + currentVersion()),
+                titleX + nameW + 8, titleY, Theme.TEXT_MUTED, false);
+
+        // Module count (right-aligned, before search)
+        String count = moduleCountLabel();
+        int countW = textRenderer.getWidth(count);
+        int countX = searchField.getX() - 8 - countW;
+        int countY = searchField.getY() + (Theme.TAB_HEIGHT - 9) / 2;
+        ctx.drawText(textRenderer, Text.literal(count), countX, countY, Theme.TEXT_MUTED, false);
+
+        // Card backgrounds
         for (CardLayout c : cards) drawCardBackground(ctx, c, mouseX, mouseY);
 
+        // Empty state
         if (cards.isEmpty()) {
-            String msg = moduleManager.modules().isEmpty()
+            String primary = moduleManager.modules().isEmpty()
                     ? "No modules registered yet."
                     : "No modules match this filter.";
-            ctx.drawCenteredTextWithShadow(textRenderer, Text.literal("§7" + msg),
-                    width / 2, (contentTop + contentBottom) / 2, Theme.TEXT_MUTED);
+            String hint = moduleManager.modules().isEmpty()
+                    ? "Module cards will appear here as features are added."
+                    : "Try clearing the search or selecting another tab.";
+            int cx = (panelX1 + panelX2) / 2;
+            int cy = (contentY1 + contentY2) / 2 - 6;
+            ctx.drawCenteredTextWithShadow(textRenderer, Text.literal(primary), cx, cy, Theme.TEXT_MUTED);
+            ctx.drawCenteredTextWithShadow(textRenderer, Text.literal("§8" + hint), cx, cy + 12, Theme.TEXT_DISABLED);
         }
 
         super.render(ctx, mouseX, mouseY, delta);
+    }
+
+    private String moduleCountLabel() {
+        int total = moduleManager.modules().size();
+        int shown = cards.size();
+        if (total == 0) return "0 modules";
+        if (shown == total) return total + (total == 1 ? " module" : " modules");
+        return shown + " / " + total + " modules";
     }
 
     private void drawCardBackground(DrawContext ctx, CardLayout c, int mx, int my) {
@@ -272,15 +333,13 @@ public final class ConfigScreen extends Screen {
 
         ctx.drawCenteredTextWithShadow(textRenderer,
                 Text.literal(c.module.displayName()),
-                x1 + Theme.CARD_WIDTH / 2, y1 + 10, Theme.TEXT_PRIMARY);
+                x1 + Theme.CARD_WIDTH / 2, y1 + 8, Theme.TEXT_PRIMARY);
         ctx.drawCenteredTextWithShadow(textRenderer,
                 Text.literal("§8" + c.module.category().displayName()),
-                x1 + Theme.CARD_WIDTH / 2, y1 + 24, Theme.TEXT_MUTED);
+                x1 + Theme.CARD_WIDTH / 2, y1 + 22, Theme.TEXT_MUTED);
     }
 
     private static String currentVersion() {
-        // Fabric loader metadata is the source of truth; fall back to a hard-coded
-        // string when the metadata isn't available (dev hot-swap, missing manifest).
         try {
             return net.fabricmc.loader.api.FabricLoader.getInstance()
                     .getModContainer(ModInfo.MOD_ID)
@@ -299,9 +358,6 @@ public final class ConfigScreen extends Screen {
 
     @Override
     public boolean shouldPause() { return false; }
-
-    // Helper to expose Screen.remove which is protected — we are inside the
-    // package boundary here, so no special accessor is needed.
 
     private static final class CardLayout {
         final Module module;
